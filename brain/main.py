@@ -1,7 +1,8 @@
 from fastapi import FastAPI, HTTPException
 from database import db
-from models import LogRequest, LogResponse
+from models import LogRequest, LogResponse, QueryRequest, QueryResponse, SourceReference
 from services.embedding import extract_context, generate_embedding
+from services.retrieval import search_vault, synthesize_answer
 
 app = FastAPI(
     title="Aqueitas Brain",
@@ -72,4 +73,27 @@ async def ingest_log(request: LogRequest):
 
     except Exception as e:
         print(f"Error during ingestion: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/query", response_model=QueryResponse)
+async def query_vault(request: QueryRequest):
+    if not db.pool:
+        raise HTTPException(status_code=500, detail="Database pool not initialized.")
+        
+    try:
+        # Step 1: Vectorization
+        query_vector = await generate_embedding(request.query)
+        
+        # Step 2 & 3: Proximity Query with strict database limit
+        async with db.pool.acquire() as connection:
+            retrieved_logs = await search_vault(query_vector, request.limit, connection)
+            
+        # Step 4: Zero-Hallucination Synthesis
+        answer = await synthesize_answer(request.query, retrieved_logs)
+        
+        sources = [SourceReference(log_id=log["log_id"], project_name=log["project_name"]) for log in retrieved_logs]
+        
+        return QueryResponse(answer=answer, sources=sources)
+    except Exception as e:
+        print(f"Error during retrieval: {e}")
         raise HTTPException(status_code=500, detail=str(e))

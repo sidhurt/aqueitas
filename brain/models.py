@@ -1,5 +1,5 @@
 from pydantic import BaseModel, Field
-from typing import Optional
+from typing import Optional, List
 
 class LogRequest(BaseModel):
     project_name: str = Field(..., description="Name of the repository this log belongs to.")
@@ -10,3 +10,15 @@ class LogResponse(BaseModel):
     status: str
     message: str
     log_id: str
+
+class SourceReference(BaseModel):
+    log_id: str
+    project_name: str
+
+class QueryRequest(BaseModel):
+    query: str = Field(..., description="Natural language query to search the vault.")
+    limit: int = Field(5, description="Maximum number of logs to retrieve.")
+
+class QueryResponse(BaseModel):
+    answer: str
+    sources: List[SourceReference]
