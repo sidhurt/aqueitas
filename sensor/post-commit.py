@@ -7,7 +7,7 @@ import sys
 
 def run_cmd(cmd):
     try:
-        result = subprocess.run(cmd, shell=True, capture_output=True, text=True, check=True)
+        result = subprocess.run(cmd, shell=True, capture_output=True, text=True, check=True, encoding="utf-8", errors="replace")
         return result.stdout.strip()
     except subprocess.CalledProcessError:
         return ""
