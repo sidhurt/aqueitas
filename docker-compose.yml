@@ -1,0 +1,21 @@
+version: '3.8'
+
+services:
+  db:
+    image: ankane/pgvector:v0.5.1
+    # Note: We are using ankane/pgvector which is the official vector extension image for Postgres. 
+    # You can also use pgvector/pgvector:pg17 if preferred, but ankane/pgvector is highly stable.
+    container_name: aqueitas-vault
+    environment:
+      POSTGRES_USER: aqueitas_admin
+      POSTGRES_PASSWORD: sovereign_password_123 # Change this in production
+      POSTGRES_DB: aqueitas_db
+    ports:
+      - "5433:5432"
+    volumes:
+      - aqueitas-db-data:/var/lib/postgresql/data
+      - ./infrastructure/db/init.sql:/docker-entrypoint-initdb.d/init.sql
+    restart: unless-stopped
+
+volumes:
+  aqueitas-db-data:

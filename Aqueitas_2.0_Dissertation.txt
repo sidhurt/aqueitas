@@ -1,0 +1,72 @@
+================================================================================
+AQUEITAS 2.0: PROJECT DISSERTATION & TECHNICAL ARCHITECTURE REPORT
+================================================================================
+
+TITLE: Aqueitas 2.0 - The Sovereign Engineering Operating System (EngOS)
+DOCUMENT STATUS: Finalized (Phase 1 & 2 Complete)
+TARGET AUDIENCE: Human Engineers & AI Agents
+
+--------------------------------------------------------------------------------
+1. EXECUTIVE SUMMARY
+--------------------------------------------------------------------------------
+Aqueitas 2.0 represents an evolutionary leap from a passive documentation automation script into an active, sovereign Engineering Operating System (EngOS). The primary objective of Aqueitas is to capture, synthesize, and retrieve technical engineering decisions with zero friction, transforming "write-only" documentation into "Active Technical Memory." 
+
+By eliminating third-party SaaS dependencies (like Notion) and adopting a self-hosted, serverless-ready architecture, Aqueitas guarantees data sovereignty, absolute privacy, and "Financial Drag" elimination (zero costs when idle).
+
+--------------------------------------------------------------------------------
+2. CORE PHILOSOPHY & STRATEGIC ARCHITECTURE
+--------------------------------------------------------------------------------
+The architecture is dictated by the principle of "Efficiency over Excess" and "Zero-Cost Infrastructure." 
+
+- Zero-Cost when Idle: The system avoids managed databases or always-on cloud compute instances. It leverages local containerization for development, with a clear path to AWS Lambda (scale-to-zero) for production.
+- High-Velocity Execution: To maintain a developer's "Deep Work" flow, all operations are designed to execute asynchronously with sub-100ms latency.
+- Hybrid Intelligence: The system routes computational tasks to the most cost-effective and mathematically sound AI models available, preventing vendor lock-in.
+
+--------------------------------------------------------------------------------
+3. TECHNICAL REALITY: PHASE 1 - THE SOVEREIGN VAULT (MEMORY LAYER)
+--------------------------------------------------------------------------------
+The Sovereign Vault replaces external SaaS platforms, ensuring the user owns their intelligence data.
+
+- Core Technology: Dockerized PostgreSQL using the `ankane/pgvector` extension.
+- Schema Design: 
+  - `projects`: Tracks monitored repositories.
+  - `engineering_logs`: The chronological ledger of Git diffs, containing both the raw code changes and the LLM-deduced "intentionality."
+  - `technical_lessons`: Distilled, synthesized lessons aggregated over time.
+- Vectorization Strategy: The `engineering_logs` and `technical_lessons` tables utilize a `vector(1536)` column.
+- Indexing: Hierarchical Navigable Small World (HNSW) indexing is applied to the vector columns (`vector_cosine_ops`), allowing for instantaneous semantic search and Retrieval-Augmented Generation (RAG) at scale.
+
+--------------------------------------------------------------------------------
+4. TECHNICAL REALITY: PHASE 2 - THE INGESTION ENGINE (THE BRAIN)
+--------------------------------------------------------------------------------
+The "Brain" is the high-velocity logic layer that transforms raw data into structured intelligence.
+
+- Core Technology: A Python-based FastAPI service running in an isolated virtual environment (`brain/`).
+- Asynchronous Connectivity: Uses `asyncpg` for non-blocking, highly concurrent connection pooling to the Sovereign Vault, maximizing throughput and minimizing execution duration.
+- The Hybrid Context Engine:
+  Aqueitas 2.0 does not blindly summarize code. It implements a dual-model (Hybrid) pipeline to extract the "Why" (Intentionality) behind a code change:
+  
+  1. The Reasoning Engine (DeepSeek):
+     - Model: `deepseek-chat`
+     - Role: Acts as an elite Staff Engineer. It analyzes raw Git diffs, aggressively ignores boilerplate and trivial syntax, and deduces the structural intentionality of the change.
+     - Why DeepSeek?: At ~$0.14 per 1M tokens, it provides state-of-the-art reasoning for massive code payloads at a fraction of the cost of GPT-4.
+  
+  2. The Vector Engine (OpenAI):
+     - Model: `text-embedding-3-small`
+     - Role: Converts DeepSeek's technical deduction into a 1536-dimensional floating-point array.
+     - Why OpenAI?: It represents the industry standard for mathematical vectorization. At $0.02 per 1M tokens, it is virtually free, ensuring the database mathematics remain stable and globally compatible.
+
+- API Endpoints:
+  - `POST /log`: Validates incoming payloads via Pydantic schemas, routes the diff through the Hybrid Context Engine, generates the embedding, and asynchronously inserts the full payload into the PostgreSQL vault.
+
+--------------------------------------------------------------------------------
+5. CONSUMPTION FOR AI AGENTS
+--------------------------------------------------------------------------------
+For Agentic IDEs interacting with this system:
+- The database is mapped to `127.0.0.1:5433` (avoiding port 5432 conflicts with native Windows services).
+- The Brain runs locally via `uvicorn main:app` on port 8000.
+- All intelligence operations are stateless. If modifying the Context Engine logic, AI agents must preserve the Hybrid Model structure (DeepSeek for completions, OpenAI for embeddings) unless specifically instructed to optimize further.
+
+--------------------------------------------------------------------------------
+6. CONCLUSION & FUTURE TRAJECTORY (PHASE 3)
+--------------------------------------------------------------------------------
+Aqueitas 2.0 successfully operates as an isolated intelligence black-box. The foundation (PostgreSQL + pgvector) and the Nervous System (FastAPI + Hybrid AI) are active. The future trajectory involves building the Retrieval API (allowing the user to query past decisions) and developing the VS Code/CLI watcher to trigger the `/log` endpoint automatically on Git commits.
