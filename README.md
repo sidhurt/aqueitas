@@ -4,40 +4,92 @@ Aqueitas executes the death of "passive forgetting" in software engineering. By 
 
 ---
 
-## 🚀 The Evolution: Aqueitas 1.0 vs. Aqueitas 2.0
+## ⚡ See It In Action
 
-Aqueitas has undergone a profound architectural shift. It evolved from a lightweight, automated documentation sidecar relying on third-party SaaS (Aqueitas 1.0) into a fully sovereign, mathematically rigorous Engineering Operating System (Aqueitas 2.0). 
-
-Here is a comprehensive comparison of the project's first and second iterations:
-
-### 1. The Persistence Layer (Memory)
-* **Aqueitas 1.0:** Relied on **Notion via MCP** (Model Context Protocol). It bridged the CLI and Notion to convert ephemeral diff analysis into a permanent database. While effective, it suffered from SaaS lock-in and required navigating an external interface.
-* **Aqueitas 2.0:** Migrated to a **Sovereign Vault**. Utilizes Dockerized **PostgreSQL 17** with the `pgvector` extension. Data sovereignty is prioritized, natively handling 1536-dimensional embeddings with Hierarchical Navigable Small World (HNSW) indexing for instantaneous semantic retrieval.
-
-### 2. The Automation Trigger (Sensor)
-* **Aqueitas 1.0:** Driven by IDE-specific configurations (`.vscode/tasks.json`). It utilized the `"runOn": "folderOpen"` directive to trigger a zero-click automation pipeline that synced the local environment with SAP Business Application Studio (BAS).
-* **Aqueitas 2.0:** Operates at the system level via a **Global Git Hook** (`core.hooksPath` mapped to `sensor/post-commit.py`). It synchronously intercepts `git commit` commands, enforcing a 2-5 second terminal block to provide undeniable confirmation that the embedding was successfully reasoned and written to the Vault.
-
-### 3. The Intelligence Layer (Brain)
-* **Aqueitas 1.0:** Powered by bash scripts (`audit-changes.sh`) using Heredocs to pass diffs to the **Gemini CLI**. It booted the LLM into a scoped role to derive architectural rationale.
-* **Aqueitas 2.0:** Powered by a high-velocity **FastAPI** Python service utilizing a Hybrid Context Engine:
-  * **DeepSeek (`deepseek-chat`):** Acts as the Staff-level architect to strip boilerplate and deduce intentionality (the "Why").
-  * **OpenAI (`text-embedding-3-small`):** Mathematically encodes the text into 1536-dimensional coordinates.
-
-### 4. The Retrieval Engine (Output)
-* **Aqueitas 1.0:** Read-only intelligence persisted in Notion. Engineers had to open Notion to search past rationale.
-* **Aqueitas 2.0:** A dedicated **RAG Pipeline** accessible directly via terminal cross-platform wrappers (`aq-ask`). DeepSeek is subjected to a **Zero-Hallucination Protocol**—it is explicitly forbidden from utilizing its generalized training data. If the vector search returns irrelevant logs, it defaults to: *"The Vault contains no record of this resolution."*
+*[Demo Video / GIF Goes Here — Show a real commit being intercepted, the 2-5 second reasoning block, and an `aq-ask` retrieval]*
 
 ---
 
-## 🏗️ The Aqueitas 2.0 Architecture Overview
+## 🚀 Quickstart: Run Aqueitas in 5 Minutes
+
+### Prerequisites
+- Docker & Docker Compose
+- Python 3.10+
+- Git
+
+### 1. Configure Environment
+Copy the example environment file and add your API keys:
+```bash
+cp .env.example .env
+# Edit .env and add your DEEPSEEK_API_KEY and OPENAI_API_KEY
+```
+
+### 2. Boot the Sovereign Vault (Memory)
+Start the PostgreSQL 17 database with `pgvector` enabled:
+```bash
+docker-compose up -d
+```
+
+### 3. Start the Ingestion Engine (Brain) & Sensor
+Install the dependencies and start the local Brain server, then activate the global Git sensor:
+```bash
+cd brain
+pip install -r requirements.txt
+uvicorn main:app --port 8000 &
+
+# Back in the root directory, enable the Git Hook Sensor
+./setup.ps1
+```
+*Any commit you make globally will now be intercepted, analyzed, and embedded into your Sovereign Vault.*
+
+---
+
+## 🏗️ The Aqueitas 2.0 Architecture
 
 The system is strictly divided into four operational layers leveraging open-source, scalable technologies:
 
-1. **Phase 1: The Sovereign Vault:** PostgreSQL + `pgvector`.
-2. **Phase 2: The Ingestion Engine:** FastAPI + `asyncpg` + DeepSeek/OpenAI hybrid routing.
-3. **Phase 3: The Sensor:** Global Git hooks intercepting commits synchronously.
-4. **Phase 4: The Retrieval Engine:** Vector search orchestration via CLI (`aq-ask`).
+```mermaid
+graph TD
+    subgraph "Phase 3: The Sensor"
+        A[Developer Commits Code] -->|Git Hook Intercepts| B(post-commit.py)
+    end
+
+    subgraph "Phase 2: The Ingestion Engine (FastAPI)"
+        B -->|Async Payload POST| C{Hybrid Context Engine}
+        C -->|1. Reasoning: Deduce Intent| D[DeepSeek 'deepseek-chat']
+        C -->|2. Math: Embed to 1536d| E[OpenAI 'text-embedding-3-small']
+        D --> C
+        E --> C
+    end
+
+    subgraph "Phase 1: The Sovereign Vault"
+        C -->|Async Insert| F[(PostgreSQL + pgvector)]
+    end
+
+    subgraph "Phase 4: The Retrieval Engine"
+        G[aq-ask CLI] -->|Query| F
+        F -->|HNSW Vector Search| G
+        G -->|Zero-Hallucination RAG| H((Human Engineer))
+    end
+```
+
+### Phase Breakdown:
+1. **The Sovereign Vault:** PostgreSQL + `pgvector`. Data sovereignty prioritized natively handling 1536-dimensional embeddings with HNSW indexing.
+2. **The Ingestion Engine:** FastAPI + `asyncpg` + DeepSeek/OpenAI hybrid routing. Extracts the "Why" (Intentionality) behind a code change and mathematically encodes it.
+3. **The Sensor:** Global Git hooks (`core.hooksPath`) intercepting commits synchronously.
+4. **The Retrieval Engine:** Vector search orchestration via CLI (`aq-ask`) constrained by a Zero-Hallucination Protocol.
+
+---
+
+## 📖 Deep Dive & Philosophy
+
+Aqueitas evolved from a lightweight documentation script (1.0) into a mathematically rigorous Engineering Operating System (2.0) that prioritizes data sovereignty and eliminates SaaS lock-in. 
+
+To understand the core philosophy and the technical evolution, read our detailed internal documents:
+- [The Aqueitas Manifesto](docs/AQUEITAS_MANIFESTO.md)
+- [Aqueitas 2.0: Dissertation & Architecture](docs/Aqueitas_2.0_Dissertation.txt)
+
+---
 
 ## 💡 Financial & Operational Efficiency
 
@@ -45,4 +97,4 @@ The entire system is architected under the mandate of "Efficiency over Excess." 
 
 ## 🌍 Global Impact
 
-The current industry standard relies on fragmented documentation (Notion, Slack, Jira) which inevitably fails under pressure, resulting in the mass evaporation of intellectual property. Aqueitas 2.0 redefines the relationship between the engineer and their output. It elevates the operator from a laborer writing syntax into a commander orchestrating captured intelligence. 
+The current industry standard relies on fragmented documentation (Notion, Slack, Jira) which inevitably fails under pressure, resulting in the mass evaporation of intellectual property. Aqueitas 2.0 redefines the relationship between the engineer and their output. It elevates the operator from a laborer writing syntax into a commander orchestrating captured intelligence.
