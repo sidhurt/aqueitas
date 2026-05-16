@@ -1,4 +1,5 @@
 from fastapi import FastAPI, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
 from database import db
 from models import LogRequest, LogResponse, QueryRequest, QueryResponse, SourceReference
 from services.embedding import extract_context, generate_embedding
@@ -8,6 +9,15 @@ app = FastAPI(
     title="Aqueitas Brain",
     description="The Intelligence Layer of the Aqueitas EngOS",
     version="2.0.0"
+)
+
+# Enable CORS for frontend integration
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://localhost:3000", "http://127.0.0.1:3000"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 
 @app.on_event("startup")
@@ -97,3 +107,22 @@ async def query_vault(request: QueryRequest):
     except Exception as e:
         print(f"Error during retrieval: {e}")
         raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/logs")
+async def get_recent_logs(limit: int = 10):
+    """
+    Retrieves the most recent engineering logs for the dashboard.
+    """
+    if not db.pool:
+        raise HTTPException(status_code=500, detail="Database pool not initialized.")
+        
+    async with db.pool.acquire() as connection:
+        query = """
+        SELECT l.id as log_id, p.name as project_name, l.log_content, l.created_at
+        FROM engineering_logs l
+        JOIN projects p ON l.project_id = p.id
+        ORDER BY l.created_at DESC
+        LIMIT $1
+        """
+        rows = await connection.fetch(query, limit)
+        return [dict(row) for row in rows]

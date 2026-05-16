@@ -1,0 +1,672 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Aqueitas — The Sovereign Engineering Operating System</title>
+  <meta name="description" content="Aqueitas intercepts your engineering work at the moment it happens, reasons over it, and makes every decision permanently queryable. Your knowledge compounds. Your mistakes don't repeat.">
+  <meta property="og:title" content="Aqueitas — The Sovereign Engineering Operating System">
+  <meta property="og:description" content="It remembers your intent. So you never solve the same problem twice.">
+  <meta property="og:type" content="website">
+  <meta name="twitter:card" content="summary_large_image">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;1,300;1,400&family=Inter:wght@300;400;500&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --gold: #d4b978;
+      --gold-dim: rgba(212,185,120,0.15);
+      --gold-mid: rgba(212,185,120,0.3);
+      --cream: #f0ead8;
+      --text: #e8e2d4;
+      --text-dim: rgba(232,226,212,0.5);
+      --text-muted: rgba(232,226,212,0.3);
+      --bg: #0e0d0b;
+      --bg-raised: #141310;
+      --bg-lift: #1a1815;
+      --green: #5dcaa5;
+      --red: rgba(226,75,74,0.6);
+    }
+
+    html { scroll-behavior: smooth; }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'Inter', sans-serif;
+      font-weight: 300;
+      min-height: 100vh;
+      overflow-x: hidden;
+    }
+
+    /* NAV */
+    nav {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 1.5rem 3rem;
+      border-bottom: 0.5px solid var(--gold-dim);
+      position: sticky;
+      top: 0;
+      background: rgba(14,13,11,0.92);
+      backdrop-filter: blur(12px);
+      z-index: 100;
+    }
+
+    .logo {
+      font-family: 'Cormorant Garamond', serif;
+      font-size: 22px;
+      font-weight: 400;
+      letter-spacing: 0.12em;
+      color: var(--gold);
+      text-transform: uppercase;
+      text-decoration: none;
+    }
+
+    .nav-links { display: flex; gap: 2rem; list-style: none; }
+    .nav-links a {
+      font-size: 11px;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--text-dim);
+      text-decoration: none;
+      transition: color 0.2s;
+    }
+    .nav-links a:hover { color: var(--gold); }
+
+    /* HERO */
+    .hero {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      text-align: center;
+      padding: 7rem 2rem 5rem;
+      position: relative;
+    }
+
+    .hero::before {
+      content: '';
+      position: absolute;
+      top: 0; left: 50%;
+      transform: translateX(-50%);
+      width: 600px;
+      height: 400px;
+      background: radial-gradient(ellipse at center, rgba(212,185,120,0.06) 0%, transparent 70%);
+      pointer-events: none;
+    }
+
+    .ornament {
+      font-family: 'Cormorant Garamond', serif;
+      font-size: 11px;
+      letter-spacing: 0.35em;
+      text-transform: uppercase;
+      color: var(--gold);
+      opacity: 0.7;
+      margin-bottom: 2rem;
+      animation: fadeUp 0.8s ease both;
+    }
+
+    h1 {
+      font-family: 'Cormorant Garamond', serif;
+      font-size: clamp(40px, 6vw, 64px);
+      font-weight: 300;
+      line-height: 1.1;
+      color: var(--cream);
+      max-width: 800px;
+      margin-bottom: 1.5rem;
+      letter-spacing: -0.01em;
+      animation: fadeUp 0.8s ease 0.1s both;
+    }
+
+    h1 em { font-style: italic; color: var(--gold); }
+
+    .hero-sub {
+      font-size: 16px;
+      color: var(--text-dim);
+      max-width: 520px;
+      line-height: 1.8;
+      margin-bottom: 3rem;
+      animation: fadeUp 0.8s ease 0.2s both;
+    }
+
+    .cta-group {
+      display: flex;
+      gap: 1rem;
+      align-items: center;
+      animation: fadeUp 0.8s ease 0.3s both;
+    }
+
+    .btn-primary {
+      background: var(--gold);
+      color: var(--bg);
+      border: none;
+      padding: 0.8rem 2.2rem;
+      font-size: 11px;
+      letter-spacing: 0.15em;
+      text-transform: uppercase;
+      cursor: pointer;
+      font-family: 'Inter', sans-serif;
+      font-weight: 500;
+      border-radius: 2px;
+      transition: opacity 0.2s, transform 0.2s;
+      text-decoration: none;
+      display: inline-block;
+    }
+    .btn-primary:hover { opacity: 0.85; transform: translateY(-1px); }
+
+    .btn-ghost {
+      background: transparent;
+      color: var(--text-dim);
+      border: 0.5px solid var(--gold-mid);
+      padding: 0.8rem 2.2rem;
+      font-size: 11px;
+      letter-spacing: 0.15em;
+      text-transform: uppercase;
+      cursor: pointer;
+      font-family: 'Inter', sans-serif;
+      font-weight: 400;
+      border-radius: 2px;
+      transition: all 0.2s;
+      text-decoration: none;
+      display: inline-block;
+    }
+    .btn-ghost:hover { border-color: rgba(212,185,120,0.7); color: var(--gold); transform: translateY(-1px); }
+
+    /* TERMINAL */
+    .section { max-width: 940px; margin: 0 auto; padding: 0 2rem; }
+
+    .terminal-wrap {
+      background: var(--bg-raised);
+      border: 0.5px solid rgba(212,185,120,0.2);
+      border-radius: 6px;
+      overflow: hidden;
+      box-shadow: 0 32px 80px rgba(0,0,0,0.5);
+    }
+
+    .terminal-bar {
+      background: var(--bg-lift);
+      padding: 0.7rem 1.2rem;
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      border-bottom: 0.5px solid var(--gold-dim);
+    }
+
+    .dot {
+      width: 11px; height: 11px;
+      border-radius: 50%;
+    }
+    .dot-r { background: rgba(255,95,87,0.5); }
+    .dot-y { background: rgba(255,189,46,0.5); }
+    .dot-g { background: rgba(39,201,63,0.5); }
+
+    .terminal-bar-label {
+      margin-left: auto;
+      font-size: 11px;
+      letter-spacing: 0.1em;
+      color: var(--text-muted);
+    }
+
+    .terminal-body {
+      padding: 1.8rem 2rem;
+      font-family: 'Courier New', monospace;
+      font-size: 13px;
+      line-height: 2;
+    }
+
+    .t-prompt { color: var(--gold); }
+    .t-cmd { color: var(--text); }
+    .t-dim { color: var(--text-muted); font-size: 11px; }
+    .t-out { color: var(--text-dim); }
+    .t-ok { color: var(--green); }
+    .t-acc { color: var(--gold); }
+    .t-blank { display: block; height: 0.5rem; }
+
+    /* TYPE ANIMATION */
+    .type-cursor::after {
+      content: '|';
+      animation: blink 1s step-end infinite;
+      color: var(--gold);
+    }
+
+    /* DIVIDER */
+    .divider {
+      width: 60px; height: 0.5px;
+      background: linear-gradient(90deg, transparent, var(--gold), transparent);
+      margin: 5.5rem auto;
+    }
+
+    /* SECTION HEADER */
+    .sec-label {
+      font-size: 10px;
+      letter-spacing: 0.35em;
+      text-transform: uppercase;
+      color: var(--gold);
+      opacity: 0.7;
+      margin-bottom: 1rem;
+    }
+
+    h2 {
+      font-family: 'Cormorant Garamond', serif;
+      font-size: clamp(28px, 4vw, 40px);
+      font-weight: 300;
+      color: var(--cream);
+      margin-bottom: 1rem;
+      line-height: 1.2;
+    }
+
+    .sec-body {
+      font-size: 15px;
+      color: var(--text-dim);
+      line-height: 1.85;
+      max-width: 580px;
+    }
+
+    /* ARCH GRID */
+    .arch-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 1px;
+      background: var(--gold-dim);
+      border: 0.5px solid var(--gold-dim);
+      margin-top: 3rem;
+    }
+
+    .arch-cell {
+      background: var(--bg);
+      padding: 2.2rem 1.8rem;
+      transition: background 0.3s;
+    }
+    .arch-cell:hover { background: var(--bg-raised); }
+
+    .arch-num {
+      font-family: 'Cormorant Garamond', serif;
+      font-size: 48px;
+      font-weight: 300;
+      color: rgba(212,185,120,0.18);
+      line-height: 1;
+      margin-bottom: 0.8rem;
+    }
+
+    .arch-name {
+      font-size: 11px;
+      letter-spacing: 0.15em;
+      text-transform: uppercase;
+      color: var(--gold);
+      margin-bottom: 0.6rem;
+    }
+
+    .arch-desc {
+      font-size: 13px;
+      color: var(--text-muted);
+      line-height: 1.65;
+    }
+
+    /* ORIGIN TIMELINE */
+    .origin-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 1px;
+      background: rgba(212,185,120,0.08);
+      margin-top: 3rem;
+    }
+
+    .origin-cell {
+      background: var(--bg);
+      padding: 2.2rem 1.8rem;
+      transition: background 0.3s;
+    }
+    .origin-cell:hover { background: var(--bg-raised); }
+
+    .origin-era {
+      font-size: 10px;
+      letter-spacing: 0.2em;
+      text-transform: uppercase;
+      color: rgba(212,185,120,0.5);
+      margin-bottom: 0.6rem;
+    }
+
+    .origin-name {
+      font-family: 'Cormorant Garamond', serif;
+      font-size: 24px;
+      color: var(--cream);
+      margin-bottom: 0.8rem;
+    }
+
+    .origin-body {
+      font-size: 13px;
+      color: var(--text-muted);
+      line-height: 1.75;
+    }
+
+    .badge {
+      display: inline-block;
+      margin-top: 1.2rem;
+      font-size: 10px;
+      letter-spacing: 0.15em;
+      text-transform: uppercase;
+      padding: 3px 10px;
+      border-radius: 2px;
+    }
+    .badge-fail { background: rgba(226,75,74,0.08); color: var(--red); border: 0.5px solid rgba(226,75,74,0.2); }
+    .badge-ship { background: rgba(93,202,165,0.08); color: var(--green); border: 0.5px solid rgba(93,202,165,0.2); }
+    .badge-live { background: rgba(212,185,120,0.08); color: var(--gold); border: 0.5px solid var(--gold-mid); }
+
+    /* COST BAR */
+    .cost-bar {
+      margin-top: 3rem;
+      background: var(--bg-raised);
+      border: 0.5px solid rgba(212,185,120,0.15);
+      padding: 3rem;
+      display: flex;
+      align-items: center;
+      gap: 3rem;
+    }
+
+    .cost-num {
+      font-family: 'Cormorant Garamond', serif;
+      font-size: 72px;
+      font-weight: 300;
+      color: var(--gold);
+      line-height: 1;
+      white-space: nowrap;
+    }
+
+    .cost-text { font-size: 14px; color: var(--text-dim); line-height: 1.8; }
+    .cost-text small { color: var(--text-muted); font-size: 12px; }
+
+    /* PHILOSOPHY */
+    .philosophy-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 3rem;
+      margin-top: 3rem;
+    }
+
+    .phil-item {}
+    .phil-title {
+      font-family: 'Cormorant Garamond', serif;
+      font-size: 20px;
+      color: var(--cream);
+      margin-bottom: 0.5rem;
+    }
+    .phil-body { font-size: 13px; color: var(--text-muted); line-height: 1.75; }
+
+    /* BUILDER */
+    .builder-section {
+      text-align: center;
+      padding-bottom: 2rem;
+    }
+
+    /* FOOTER */
+    footer {
+      border-top: 0.5px solid rgba(212,185,120,0.1);
+      padding: 3rem;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-top: 6rem;
+      flex-wrap: wrap;
+      gap: 1.5rem;
+    }
+
+    .footer-logo {
+      font-family: 'Cormorant Garamond', serif;
+      font-size: 18px;
+      color: var(--gold);
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      opacity: 0.5;
+    }
+
+    .footer-etym {
+      font-family: 'Cormorant Garamond', serif;
+      font-size: 13px;
+      letter-spacing: 0.2em;
+      color: var(--text-muted);
+      font-style: italic;
+    }
+
+    .footer-links { display: flex; gap: 2rem; list-style: none; }
+    .footer-links a {
+      font-size: 11px;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--text-muted);
+      text-decoration: none;
+      transition: color 0.2s;
+    }
+    .footer-links a:hover { color: var(--gold); }
+
+    /* ANIMATIONS */
+    @keyframes fadeUp {
+      from { opacity: 0; transform: translateY(20px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    @keyframes blink {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0; }
+    }
+
+    .fade-in {
+      opacity: 0;
+      transform: translateY(24px);
+      transition: opacity 0.7s ease, transform 0.7s ease;
+    }
+    .fade-in.visible { opacity: 1; transform: translateY(0); }
+
+    /* RESPONSIVE */
+    @media (max-width: 768px) {
+      nav { padding: 1rem 1.5rem; }
+      .nav-links { display: none; }
+      .hero { padding: 5rem 1.5rem 3rem; }
+      .section { padding: 0 1.5rem; }
+      .origin-grid { grid-template-columns: 1fr; }
+      .philosophy-grid { grid-template-columns: 1fr; }
+      .cost-bar { flex-direction: column; gap: 1rem; padding: 2rem; }
+      footer { flex-direction: column; text-align: center; padding: 2rem 1.5rem; }
+      .terminal-body { padding: 1.2rem; font-size: 11.5px; }
+    }
+  </style>
+</head>
+<body>
+
+  <nav>
+    <a href="#" class="logo">Aqueitas</a>
+    <ul class="nav-links">
+      <li><a href="#architecture">Architecture</a></li>
+      <li><a href="#origin">Origin</a></li>
+      <li><a href="#philosophy">Philosophy</a></li>
+      <li><a href="https://github.com/sidhurt/aqueitas" target="_blank" rel="noopener">GitHub ↗</a></li>
+    </ul>
+  </nav>
+
+  <!-- HERO -->
+  <section class="hero">
+    <div class="ornament">Aequitas · Latin · Justice, Equity, Precision</div>
+    <h1>
+      It remembers your intent.<br>
+      <em>So you never solve<br>the same problem twice.</em>
+    </h1>
+    <p class="hero-sub">
+      Aqueitas intercepts your engineering work at the moment it happens, reasons over it, and makes every decision permanently queryable. Your knowledge compounds. Your mistakes don't repeat.
+    </p>
+    <div class="cta-group">
+      <a href="https://github.com/sidhurt/aqueitas" target="_blank" class="btn-primary">View on GitHub</a>
+      <a href="#architecture" class="btn-ghost">See the Architecture</a>
+    </div>
+  </section>
+
+  <!-- TERMINAL DEMO -->
+  <div class="section" style="margin-bottom: 2rem;">
+    <div class="terminal-wrap fade-in">
+      <div class="terminal-bar">
+        <div class="dot dot-r"></div>
+        <div class="dot dot-y"></div>
+        <div class="dot dot-g"></div>
+        <span class="terminal-bar-label">aqueitas · sensor active</span>
+      </div>
+      <div class="terminal-body" id="terminal-content">
+        <div><span class="t-prompt">→ </span><span class="t-cmd">git commit -m "fix: resolve OOM error in CF Node.js module via memory cap"</span></div>
+        <span class="t-blank"></span>
+        <div class="t-dim">──────────────────────────────────────────────</div>
+        <div><span class="t-out">  [Aqueitas] Intercepting diff...</span></div>
+        <div><span class="t-out">  [Aqueitas] Routing to Hybrid Context Engine...</span></div>
+        <div><span class="t-out">  [Aqueitas] Reasoning over intent via DeepSeek...</span></div>
+        <div><span class="t-ok">  ✓ Intent: Memory cap applied to prevent OOM in Cloud Foundry</span></div>
+        <div><span class="t-ok">  ✓ Vectorized → Written to Sovereign Vault [1536d]</span></div>
+        <div class="t-dim">──────────────────────────────────────────────</div>
+        <div><span class="t-out">  [master 4f3a2c1] fix: resolve OOM error in CF Node.js module</span></div>
+        <span class="t-blank"></span>
+        <div><span class="t-prompt">→ </span><span class="t-cmd">aq-ask "how did we fix the Cloud Foundry memory issue"</span></div>
+        <span class="t-blank"></span>
+        <div class="t-dim">──────────────────────────────────────────────</div>
+        <div><span class="t-acc">  Resolution found in Vault [similarity: 0.97]</span></div>
+        <div><span class="t-out">  The Node.js CF module was hitting OOM errors under load.</span></div>
+        <div><span class="t-out">  Resolution: applied memory: 512M cap in mta.yaml,</span></div>
+        <div><span class="t-out">  preventing heap overflow at runtime.</span></div>
+        <div><span class="t-out">  Committed: 3 weeks ago · Project: BTP-Prod</span></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="divider"></div>
+
+  <!-- ARCHITECTURE -->
+  <section class="section fade-in" id="architecture">
+    <div class="sec-label">System Architecture</div>
+    <h2>Four phases. Zero friction.</h2>
+    <p class="sec-body">
+      Aqueitas operates through a strict event-driven intercept architecture. Every layer has a single responsibility. Nothing is redundant. The entire stack runs locally — no SaaS, no lock-in.
+    </p>
+    <div class="arch-grid">
+      <div class="arch-cell">
+        <div class="arch-num">I</div>
+        <div class="arch-name">The Sovereign Vault</div>
+        <div class="arch-desc">PostgreSQL 17 with pgvector. HNSW indexing on 1536-dimensional embeddings. Your data, locally owned, permanently indexed.</div>
+      </div>
+      <div class="arch-cell">
+        <div class="arch-num">II</div>
+        <div class="arch-name">The Ingestion Engine</div>
+        <div class="arch-desc">FastAPI service with hybrid AI routing. DeepSeek extracts intent. OpenAI encodes it mathematically. Two models, two jobs, no overlap.</div>
+      </div>
+      <div class="arch-cell">
+        <div class="arch-num">III</div>
+        <div class="arch-name">The Sensor</div>
+        <div class="arch-desc">A global Git hook at <code style="font-size:11px; color: var(--gold);">core.hooksPath</code> level. Intercepts every commit synchronously. You never leave the terminal.</div>
+      </div>
+      <div class="arch-cell">
+        <div class="arch-num">IV</div>
+        <div class="arch-name">The Retrieval Engine</div>
+        <div class="arch-desc">RAG pipeline via <code style="font-size:11px; color: var(--gold);">aq-ask</code> CLI. Vector proximity search with a Zero-Hallucination Protocol — if it's not in the Vault, it says so.</div>
+      </div>
+    </div>
+  </section>
+
+  <div class="divider"></div>
+
+  <!-- ORIGIN -->
+  <section class="section fade-in" id="origin">
+    <div class="sec-label">The Origin</div>
+    <h2>Built from the rubble<br>of a grander failure.</h2>
+    <p class="sec-body">
+      Aqueitas did not begin as Aqueitas. It began as an obsession — and an instructive collapse.
+    </p>
+    <div class="origin-grid">
+      <div class="origin-cell">
+        <div class="origin-era">Act I · 2024</div>
+        <div class="origin-name">Project Jarvis</div>
+        <div class="origin-body">A personal AI orchestration system. Self-hosted n8n on AWS polling LinkedIn, Gmail, Teams — routing everything through agents to build a live decision dashboard. The vision was total. The complexity collapsed it.</div>
+        <span class="badge badge-fail">Instructive Failure</span>
+      </div>
+      <div class="origin-cell">
+        <div class="origin-era">Act II · 2024</div>
+        <div class="origin-name">Aqueitas 1.0</div>
+        <div class="origin-body">The lesson was precision over scope. Strip the problem to its core. Git diff interception, Gemini CLI intelligence, Notion persistence via MCP. Narrow, focused, shipped.</div>
+        <span class="badge badge-ship">Shipped</span>
+      </div>
+      <div class="origin-cell">
+        <div class="origin-era">Act III · 2025</div>
+        <div class="origin-name">Aqueitas 2.0</div>
+        <div class="origin-body">Architectural maturity. Sovereign infrastructure, hybrid AI context engine, HNSW vector search, zero-hallucination RAG. Production grade at under $1/month operational cost.</div>
+        <span class="badge badge-live">Live</span>
+      </div>
+    </div>
+  </section>
+
+  <div class="divider"></div>
+
+  <!-- COST -->
+  <section class="section fade-in">
+    <div class="cost-bar">
+      <div class="cost-num">$1</div>
+      <div class="cost-text">
+        Total monthly API overhead for 400 dense intelligence operations.<br>
+        DeepSeek reasoning at $0.14/1M tokens. OpenAI embeddings at $0.02/1M tokens.<br>
+        <small>Scale-to-zero architecture. Zero idle compute cost.</small>
+      </div>
+    </div>
+  </section>
+
+  <div class="divider"></div>
+
+  <!-- PHILOSOPHY -->
+  <section class="section fade-in" id="philosophy">
+    <div class="sec-label">Philosophy</div>
+    <h2>Efficiency over Excess.<br>Sovereignty over Convenience.</h2>
+    <div class="philosophy-grid">
+      <div class="phil-item">
+        <div class="phil-title">Zero-Cost at Idle</div>
+        <div class="phil-body">The system avoids managed databases and always-on cloud compute. Local containerization for development, with a clear path to AWS Lambda (scale-to-zero) for production. You pay for nothing when you're not working.</div>
+      </div>
+      <div class="phil-item">
+        <div class="phil-title">Zero Hallucination</div>
+        <div class="phil-body">The retrieval layer is explicitly forbidden from utilizing generalized training data. If the Vault contains no record of a resolution, it responds exactly: "The Vault contains no record of this resolution." No fabrication.</div>
+      </div>
+      <div class="phil-item">
+        <div class="phil-title">Data Sovereignty</div>
+        <div class="phil-body">Your intellectual property belongs to you, not a SaaS vendor. Every thought, every decision, every architectural rationale lives in your own PostgreSQL instance. Portable. Private. Permanent.</div>
+      </div>
+      <div class="phil-item">
+        <div class="phil-title">The Death of Passive Forgetting</div>
+        <div class="phil-body">Engineers re-solve the same problems across teams, across careers. Aqueitas makes every hard-won resolution queryable forever. The compounding effect of retained intelligence is the actual competitive advantage.</div>
+      </div>
+    </div>
+  </section>
+
+  <div class="divider"></div>
+
+  <!-- BUILDER -->
+  <section class="section fade-in builder-section">
+    <div class="sec-label">Built by</div>
+    <h2>Siddharth Shrivastava</h2>
+    <p class="sec-body" style="margin: 0 auto; text-align: center;">
+      SAP BTP &amp; Cloud Architect. AWS Solutions Architect. Mumbai.
+    </p>
+    <div class="cta-group" style="justify-content: center; margin-top: 2.5rem;">
+      <a href="https://github.com/sidhurt/aqueitas" target="_blank" class="btn-primary">GitHub Repository</a>
+      <a href="https://linkedin.com/in/sidhurt" target="_blank" class="btn-ghost">LinkedIn</a>
+    </div>
+  </section>
+
+  <footer>
+    <div class="footer-logo">Aqueitas</div>
+    <div class="footer-etym">aequitas — latin — equity, precision, justice</div>
+    <ul class="footer-links">
+      <li><a href="https://github.com/sidhurt/aqueitas" target="_blank">GitHub</a></li>
+      <li><a href="#architecture">Architecture</a></li>
+      <li><a href="#philosophy">Philosophy</a></li>
+    </ul>
+  </footer>
+
+  <script>
+    // Scroll fade-in
+    const observer = new IntersectionObserver((entries) => {
+      entries.forEach(e => { if (e.isIntersecting) e.target.classList.add('visible'); });
+    }, { threshold: 0.12 });
+    document.querySelectorAll('.fade-in').forEach(el => observer.observe(el));
+  </script>
+</body>
+</html>

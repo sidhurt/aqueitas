@@ -17,28 +17,23 @@ Aqueitas executes the death of "passive forgetting" in software engineering. By 
 - Python 3.10+
 - Git
 
-### 1. Configure Environment
-Copy the example environment file and add your API keys:
+### 1. Initialize Aqueitas
+Install dependencies, setup the virtual environment, and configure global Git sensors:
 ```bash
-cp .env.example .env
-# Edit .env and add your DEEPSEEK_API_KEY and OPENAI_API_KEY
+python aq.py install
+```
+*Note: Edit `brain/.env` with your API keys after this command.*
+
+### 2. Boot the Engine
+Start the PostgreSQL Vault and the Intelligence Brain automatically:
+```bash
+python aq.py start
 ```
 
-### 2. Boot the Sovereign Vault (Memory)
-Start the PostgreSQL 17 database with `pgvector` enabled:
+### 3. Verify Status
+Check if everything is running correctly:
 ```bash
-docker-compose up -d
-```
-
-### 3. Start the Ingestion Engine (Brain) & Sensor
-Install the dependencies and start the local Brain server, then activate the global Git sensor:
-```bash
-cd brain
-pip install -r requirements.txt
-uvicorn main:app --port 8000 &
-
-# Back in the root directory, enable the Git Hook Sensor
-./setup.ps1
+python aq.py status
 ```
 *Any commit you make globally will now be intercepted, analyzed, and embedded into your Sovereign Vault.*
 
