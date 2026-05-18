@@ -1,5 +1,7 @@
-# Secrets
+# Secrets - NEVER commit these
 .env
+brain/.env
+**/.env
 
 # Python
 __pycache__/
@@ -11,3 +13,12 @@ __pycache__/
 # Virtual Environment
 venv/
 brain/venv/
+**/venv/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Editor
+.vscode/
+.idea/

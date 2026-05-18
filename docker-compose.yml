@@ -7,9 +7,9 @@ services:
     # You can also use pgvector/pgvector:pg17 if preferred, but ankane/pgvector is highly stable.
     container_name: aqueitas-vault
     environment:
-      POSTGRES_USER: aqueitas_admin
-      POSTGRES_PASSWORD: sovereign_password_123 # Change this in production
-      POSTGRES_DB: aqueitas_db
+      POSTGRES_USER: ${DB_USER}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+      POSTGRES_DB: ${DB_NAME}
     ports:
       - "5433:5432"
     volumes:
