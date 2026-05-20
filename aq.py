@@ -3,233 +3,459 @@ import sys
 import subprocess
 import argparse
 import json
+import re
+import secrets
+import string
 import time
 from pathlib import Path
 
-# ANSI Colors for a premium terminal experience
-BLUE = "\033[94m"
+# ── Soft-import dotenv (available after `aq install`, not before) ─────────────
+try:
+    from dotenv import load_dotenv as _load_dotenv
+    def load_dotenv(path): _load_dotenv(path)
+except ImportError:
+    def load_dotenv(path): pass  # graceful no-op before venv exists
+
+# ── ANSI colors ───────────────────────────────────────────────────────────────
+BLUE  = "\033[94m"
 GREEN = "\033[92m"
-YELLOW = "\033[93m"
-RED = "\033[91m"
-BOLD = "\033[1m"
-CYAN = "\033[96m"
+YELLOW= "\033[93m"
+RED   = "\033[91m"
+BOLD  = "\033[1m"
+CYAN  = "\033[96m"
+GRAY  = "\033[90m"
 RESET = "\033[0m"
 
-ROOT_DIR = Path(__file__).parent.absolute()
-BRAIN_DIR = ROOT_DIR / "brain"
-VENV_DIR = BRAIN_DIR / "venv"
+# ── Paths ─────────────────────────────────────────────────────────────────────
+ROOT_DIR   = Path(__file__).parent.absolute()
+BRAIN_DIR  = ROOT_DIR / "brain"
+SENSOR_DIR = ROOT_DIR / "sensor"
+VENV_DIR   = BRAIN_DIR / "venv"
 PYTHON_EXEC = VENV_DIR / "Scripts" / "python.exe" if os.name == "nt" else VENV_DIR / "bin" / "python"
+PIP_EXEC    = VENV_DIR / "Scripts" / "pip.exe"    if os.name == "nt" else VENV_DIR / "bin" / "pip"
 
+
+# ── Utilities ─────────────────────────────────────────────────────────────────
 def print_status(msg, status="info"):
-    prefix = f"{BOLD}{BLUE}[AQ]{RESET}"
-    if status == "success":
-        prefix = f"{BOLD}{GREEN}[SUCCESS]{RESET}"
-    elif status == "warning":
-        prefix = f"{BOLD}{YELLOW}[WARNING]{RESET}"
-    elif status == "error":
-        prefix = f"{BOLD}{RED}[ERROR]{RESET}"
-    elif status == "bolt":
-        prefix = f"{BOLD}{CYAN}⚡{RESET}"
-    
-    print(f"{prefix} {msg}")
+    icons = {
+        "info":    f"{BOLD}{BLUE}[AQ]{RESET}",
+        "success": f"{BOLD}{GREEN}[OK]{RESET}",
+        "warning": f"{BOLD}{YELLOW}[WARN]{RESET}",
+        "error":   f"{BOLD}{RED}[ERROR]{RESET}",
+        "bolt":    f"{BOLD}{CYAN}⚡{RESET}",
+        "step":    f"{BOLD}{CYAN}──▶{RESET}",
+    }
+    print(f"  {icons.get(status, icons['info'])} {msg}")
 
 def run_cmd(cmd, cwd=ROOT_DIR, shell=True, capture=False):
     try:
-        result = subprocess.run(cmd, cwd=cwd, shell=shell, capture_output=capture, text=True, check=True)
+        result = subprocess.run(
+            cmd, cwd=cwd, shell=shell,
+            capture_output=capture, text=True, check=True
+        )
         return result.stdout.strip() if capture else True
     except subprocess.CalledProcessError as e:
         if capture:
-            return e.stdout + e.stderr
+            return (e.stdout or "") + (e.stderr or "")
         return False
 
+def divider(char="─", width=45):
+    print(f"  {GRAY}{char * width}{RESET}")
+
+
+# ── configure ─────────────────────────────────────────────────────────────────
+def configure():
+    """
+    Interactive wizard. Writes two files:
+      • root .env        → consumed by docker-compose.yml  (DB_USER / DB_PASSWORD / DB_NAME)
+      • brain/.env       → consumed by FastAPI              (DATABASE_URL / API keys)
+    Uses stdlib only — safe to run before the venv exists.
+    """
+    print()
+    print(f"  {BOLD}{CYAN}⚡  AQUEITAS SETUP WIZARD{RESET}")
+    divider("═")
+    print()
+    print(f"  {GRAY}This wizard writes your .env files so you never edit them manually.{RESET}")
+    print(f"  {GRAY}Get your keys from:{RESET}")
+    print(f"  {GRAY}  OpenAI   → https://platform.openai.com/api-keys{RESET}")
+    print(f"  {GRAY}  DeepSeek → https://platform.deepseek.com/api_keys{RESET}")
+    print()
+
+    brain_env = BRAIN_DIR / ".env"
+    root_env  = ROOT_DIR  / ".env"
+
+    # ── Reconfigure guard ──────────────────────────────────────────────────────
+    if brain_env.exists():
+        content = brain_env.read_text()
+        if "sk-" in content and "your_" not in content and "your-" not in content:
+            print_status("brain/.env already has real keys configured.", "warning")
+            resp = input("  Reconfigure from scratch? (y/N): ").strip().lower()
+            if resp != "y":
+                print_status("Configuration unchanged. Run 'python aq.py install' to continue.", "info")
+                print()
+                return
+
+    # ── Step 1: OpenAI key ────────────────────────────────────────────────────
+    print(f"  {BOLD}Step 1 of 3  —  OpenAI API Key{RESET}")
+    print(f"  {GRAY}Used for text-embedding-3-small (embedding commits into the Vault){RESET}")
+    while True:
+        openai_key = input("  Enter key: ").strip()
+        if openai_key.startswith("sk-"):
+            print_status("Key format valid.", "success")
+            break
+        print_status("OpenAI keys begin with 'sk-'. Please try again.", "warning")
+    print()
+
+    # ── Step 2: DeepSeek key ──────────────────────────────────────────────────
+    print(f"  {BOLD}Step 2 of 3  —  DeepSeek API Key{RESET}")
+    print(f"  {GRAY}Used for deepseek-chat (reasoning about what a commit means){RESET}")
+    while True:
+        deepseek_key = input("  Enter key: ").strip()
+        if deepseek_key.startswith("sk-"):
+            print_status("Key format valid.", "success")
+            break
+        print_status("DeepSeek keys begin with 'sk-'. Please try again.", "warning")
+    print()
+
+    # ── Step 3: DB password ───────────────────────────────────────────────────
+    print(f"  {BOLD}Step 3 of 3  —  Database Password{RESET}")
+    print(f"  {GRAY}Secures your local PostgreSQL Sovereign Vault.{RESET}")
+    print(f"  {GRAY}Press Enter to auto-generate a strong password.{RESET}")
+    db_pass_input = input("  Password (or Enter to generate): ").strip()
+    if not db_pass_input:
+        alphabet    = string.ascii_letters + string.digits + "!#$%^&*"
+        db_password = "".join(secrets.choice(alphabet) for _ in range(22))
+        print_status(f"Generated: {BOLD}{db_password}{RESET}", "success")
+    else:
+        db_password = db_pass_input
+        print_status("Password accepted.", "success")
+    print()
+
+    # ── Constants ──────────────────────────────────────────────────────────────
+    db_user = "aqueitas_admin"
+    db_name = "aqueitas_db"
+    db_host = "127.0.0.1"
+    db_port = "5433"
+
+    # ── Write root/.env (Docker) ───────────────────────────────────────────────
+    root_env_content = (
+        "# ============================================================\n"
+        "# AQUEITAS — DOCKER COMPOSE ENVIRONMENT\n"
+        "# Auto-generated by: python aq.py configure\n"
+        "# DO NOT commit this file — it is in .gitignore\n"
+        "# ============================================================\n"
+        "\n"
+        f"DB_USER={db_user}\n"
+        f"DB_PASSWORD={db_password}\n"
+        f"DB_NAME={db_name}\n"
+    )
+
+    # ── Write brain/.env (FastAPI) ─────────────────────────────────────────────
+    brain_env_content = (
+        "# ============================================================\n"
+        "# AQUEITAS — BRAIN ENVIRONMENT\n"
+        "# Auto-generated by: python aq.py configure\n"
+        "# DO NOT commit this file — it is in .gitignore\n"
+        "# ============================================================\n"
+        "\n"
+        "# --- Database (mirrors root .env for Docker) ---\n"
+        f"DB_USER={db_user}\n"
+        f"DB_PASSWORD={db_password}\n"
+        f"DB_NAME={db_name}\n"
+        f"DATABASE_URL=postgresql://{db_user}:{db_password}@{db_host}:{db_port}/{db_name}\n"
+        "\n"
+        "# --- OpenAI (Embeddings: text-embedding-3-small) ---\n"
+        f"OPENAI_API_KEY={openai_key}\n"
+        "\n"
+        "# --- DeepSeek (Reasoning: deepseek-chat) ---\n"
+        f"DEEPSEEK_API_KEY={deepseek_key}\n"
+    )
+
+    divider()
+    print(f"  Writing .env (Docker)  ...", end="  ", flush=True)
+    root_env.write_text(root_env_content, encoding="utf-8")
+    print(f"{GREEN}done{RESET}")
+
+    print(f"  Writing brain/.env     ...", end="  ", flush=True)
+    brain_env.write_text(brain_env_content, encoding="utf-8")
+    print(f"{GREEN}done{RESET}")
+
+    print()
+    divider("═")
+    print(f"  {BOLD}{GREEN}✅  Configuration complete!{RESET}")
+    divider("─")
+    print(f"  {GRAY}Next step — run the installer:{RESET}")
+    print(f"  {BOLD}  Double-click: INSTALL_AQUEITAS.bat{RESET}")
+    print(f"  {GRAY}  Or terminal:  python aq.py install{RESET}")
+    print()
+
+
+# ── install ───────────────────────────────────────────────────────────────────
 def install():
+    """
+    Bootstrap the Python environment and Git sensor.
+    Requires configure() to have been run first.
+    """
+    print()
     print_status("Starting Aqueitas installation...", "bolt")
-    
-    # 1. Create Virtual Environment
+    print()
+
+    # ── Gate: must configure first ────────────────────────────────────────────
+    brain_env = BRAIN_DIR / ".env"
+    root_env  = ROOT_DIR  / ".env"
+    if not brain_env.exists() or not root_env.exists():
+        print_status("Configuration files not found.", "error")
+        print_status("Run 'python aq.py configure' first, then re-run install.", "warning")
+        return
+
+    # ── 1. Create venv ────────────────────────────────────────────────────────
+    print_status("Creating virtual environment in brain/venv...", "step")
     if not VENV_DIR.exists():
-        print_status("Creating virtual environment in brain/venv...")
         if not run_cmd(f"{sys.executable} -m venv venv", cwd=BRAIN_DIR):
             print_status("Failed to create virtual environment.", "error")
             return
-    
-    # 2. Install Dependencies
-    print_status("Installing dependencies in brain/requirements.txt...")
-    pip_exec = VENV_DIR / "Scripts" / "pip.exe" if os.name == "nt" else VENV_DIR / "bin" / "pip"
-    if not run_cmd(f"{pip_exec} install -r requirements.txt", cwd=BRAIN_DIR):
-        print_status("Failed to install dependencies.", "error")
-        return
-    
-    # 3. Setup .env
-    env_file = BRAIN_DIR / ".env"
-    if not env_file.exists():
-        example_env = ROOT_DIR / ".env.example"
-        if example_env.exists():
-            print_status("Copying .env.example to brain/.env...")
-            with open(example_env, 'r') as f:
-                content = f.read()
-            with open(env_file, 'w') as f:
-                f.write(content)
-            print_status("Please edit brain/.env with your API keys.", "warning")
-        else:
-            print_status(".env.example not found. Manual .env setup required.", "warning")
-            
-    # 4. Setup Git Hooks
-    print_status("Configuring global Git hooks...")
-    if run_cmd("./setup.ps1"):
-        print_status("Aqueitas is now watching your commits globally.", "success")
+        print_status("Virtual environment created.", "success")
     else:
-        print_status("Failed to run setup.ps1. Check your PowerShell execution policy.", "error")
+        print_status("Virtual environment already exists — skipping.", "info")
 
+    # ── 2. Install dependencies ───────────────────────────────────────────────
+    print_status("Installing dependencies from brain/requirements.txt...", "step")
+    if not run_cmd(f"{PIP_EXEC} install -r requirements.txt --quiet", cwd=BRAIN_DIR):
+        print_status("pip install failed. Check brain/requirements.txt.", "error")
+        return
+    print_status("All dependencies installed.", "success")
+
+    # ── 3. Configure Git sensor ───────────────────────────────────────────────
+    print_status("Configuring global Git sensor...", "step")
+    sensor_path = str(SENSOR_DIR).replace("\\", "/")
+    if run_cmd(f'git config --global core.hooksPath "{sensor_path}"'):
+        print_status("Git sensor is active — all commits will be intercepted.", "success")
+    else:
+        print_status(
+            f"Could not set Git hooks automatically. Run manually:\n"
+            f"    git config --global core.hooksPath \"{sensor_path}\"",
+            "warning"
+        )
+
+    print()
+    divider("═")
+    print(f"  {BOLD}{GREEN}✅  Aqueitas installed!{RESET}")
+    divider("─")
+    print(f"  {GRAY}Start the engine:{RESET}")
+    print(f"  {BOLD}  Double-click: START_AQUEITAS.bat{RESET}")
+    print(f"  {GRAY}  Or terminal:  python aq.py start{RESET}")
+    print(f"  {GRAY}  Verify:       python aq.py doctor{RESET}")
+    print()
+
+
+# ── start ─────────────────────────────────────────────────────────────────────
 def start():
     print_status("Launching the Sovereign Engine...", "bolt")
-    
-    # 1. Start Docker
-    print_status("Starting Vault (Docker Compose)...")
-    run_cmd("docker-compose up -d")
-    
-    # 2. Start Brain
-    print_status("Starting Brain (FastAPI)...")
-    uvicorn_cmd = f"{VENV_DIR}/Scripts/uvicorn main:app --port 8000" if os.name == "nt" else f"{VENV_DIR}/bin/uvicorn main:app --port 8000"
-    
-    # Run uvicorn in a new terminal window on Windows
+
+    print_status("Starting Vault (Docker Compose)...", "step")
+    if not run_cmd("docker-compose up -d"):
+        print_status("Docker failed. Is Docker Desktop running?", "error")
+        return
+    print_status("Vault is up.", "success")
+
+    print_status("Launching Brain (FastAPI) in a new window...", "step")
+    uvicorn_exec = VENV_DIR / "Scripts" / "uvicorn.exe" if os.name == "nt" else VENV_DIR / "bin" / "uvicorn"
+    if not uvicorn_exec.exists():
+        print_status(
+            "Virtual environment not found. Run 'python aq.py install' first.", "error"
+        )
+        return
+
     if os.name == "nt":
-        subprocess.Popen(["start", "cmd", "/k", f"cd /d {BRAIN_DIR} && {uvicorn_cmd}"], shell=True)
+        cmd = (
+            f"Start-Process powershell -ArgumentList '-NoExit','-Command',"
+            f"\"Set-Location '{BRAIN_DIR}'; & '{uvicorn_exec}' main:app --port 8000 --reload\""
+        )
+        subprocess.Popen(["powershell", "-Command", cmd], shell=False)
     else:
-        # Fallback for unix (though this script is tuned for the user's Windows setup)
-        subprocess.Popen([f"{uvicorn_cmd}"], cwd=BRAIN_DIR, shell=True)
-    
-    print_status("Aqueitas Brain is launching in a new window.", "success")
-    print_status("Run 'aq status' in a few seconds to verify connection.", "info")
+        subprocess.Popen(
+            [str(uvicorn_exec), "main:app", "--port", "8000", "--reload"],
+            cwd=BRAIN_DIR
+        )
 
+    print_status("Brain is launching. Give it 3 seconds, then run: python aq.py status", "success")
+
+
+# ── status ────────────────────────────────────────────────────────────────────
 def status():
-    # Check Docker
-    docker_check = run_cmd("docker ps --filter name=aqueitas-vault --format '{{.Status}}'", capture=True)
-    vault_status = f"{GREEN}Running{RESET}" if "Up" in docker_check else f"{RED}Offline{RESET}"
-    
-    # Check Brain
     import urllib.request
-    brain_status = f"{RED}Offline{RESET}"
-    try:
-        with urllib.request.urlopen("http://127.0.0.1:8000/docs", timeout=1) as r:
-            if r.getcode() == 200:
-                brain_status = f"{GREEN}Alive{RESET}"
-    except:
-        pass
-        
-    print(f"\n{BOLD}{CYAN}=== AQUEITAS SYSTEM STATUS ==={RESET}")
-    print(f"Sovereign Vault: {vault_status}")
-    print(f"Intelligence Brain: {brain_status}")
-    
-    # Check Git Hook
-    hook_path = run_cmd("git config --global core.hooksPath", capture=True)
-    sensor_status = f"{GREEN}Active{RESET}" if "sensor" in hook_path.lower() else f"{RED}Inactive{RESET}"
-    print(f"Git Sensor: {sensor_status}")
-    print("="*30 + "\n")
 
+    # Docker / Vault
+    docker_out  = run_cmd("docker ps --filter name=aqueitas-vault --format {{.Status}}", capture=True)
+    vault_ok    = isinstance(docker_out, str) and "Up" in docker_out
+    vault_label = f"{GREEN}Running{RESET}" if vault_ok else f"{RED}Offline{RESET}"
+
+    # Brain (FastAPI)
+    brain_label = f"{RED}Offline{RESET}"
+    try:
+        with urllib.request.urlopen("http://127.0.0.1:8000/docs", timeout=2) as r:
+            if r.getcode() == 200:
+                brain_label = f"{GREEN}Alive{RESET}"
+    except Exception:
+        pass
+
+    # Git sensor
+    hook_path   = run_cmd("git config --global core.hooksPath", capture=True) or ""
+    sensor_ok   = "sensor" in hook_path.lower()
+    sensor_label= f"{GREEN}Active{RESET}" if sensor_ok else f"{YELLOW}Inactive{RESET}"
+
+    print()
+    print(f"  {BOLD}{CYAN}=== AQUEITAS SYSTEM STATUS ==={RESET}")
+    divider()
+    print(f"  Sovereign Vault    {vault_label}")
+    print(f"  Intelligence Brain {brain_label}")
+    print(f"  Git Sensor         {sensor_label}")
+    divider()
+    print()
+
+
+# ── doctor ────────────────────────────────────────────────────────────────────
+def doctor():
+    print()
+    print(f"  {BOLD}{CYAN}=== AQUEITAS DIAGNOSTIC DOCTOR ==={RESET}")
+    divider()
+
+    # .env files
+    brain_env = BRAIN_DIR / ".env"
+    root_env  = ROOT_DIR  / ".env"
+
+    if not root_env.exists():
+        print_status("Root .env (Docker) is missing. Run 'python aq.py configure'.", "error")
+    else:
+        print_status("Root .env (Docker) found.", "success")
+
+    if not brain_env.exists():
+        print_status("brain/.env (FastAPI) is missing. Run 'python aq.py configure'.", "error")
+    else:
+        print_status("brain/.env (FastAPI) found.", "success")
+        load_dotenv(brain_env)
+
+        for key in ["DEEPSEEK_API_KEY", "OPENAI_API_KEY", "DATABASE_URL"]:
+            val = os.getenv(key, "")
+            if not val or "your_" in val or "your-" in val:
+                print_status(f"{key} is not configured properly.", "error")
+            else:
+                masked = val[:8] + "..." if len(val) > 8 else val
+                print_status(f"{key} is set ({masked}).", "success")
+
+    # Docker / Vault
+    docker_out = run_cmd("docker ps --filter name=aqueitas-vault --format {{.Status}}", capture=True)
+    if isinstance(docker_out, str) and "Up" in docker_out:
+        print_status("Sovereign Vault (Postgres) is online.", "success")
+    else:
+        print_status("Sovereign Vault is offline. Run 'python aq.py start'.", "error")
+
+    # Python venv
+    if PYTHON_EXEC.exists():
+        print_status("Python virtual environment is ready.", "success")
+    else:
+        print_status("Virtual environment missing. Run 'python aq.py install'.", "error")
+
+    # Git sensor
+    hook_path = run_cmd("git config --global core.hooksPath", capture=True) or ""
+    if "sensor" in hook_path.lower():
+        print_status("Git sensor hook is configured.", "success")
+    else:
+        print_status("Git sensor hook is NOT set. Run 'python aq.py install'.", "error")
+
+    divider()
+    print()
+
+
+# ── ask ───────────────────────────────────────────────────────────────────────
 def ask(query, limit=5):
     import urllib.request
-    payload = json.dumps({"query": query, "limit": limit}).encode('utf-8')
-    req = urllib.request.Request("http://127.0.0.1:8000/query", data=payload, headers={'Content-Type': 'application/json'})
-    
+    payload = json.dumps({"query": query, "limit": limit}).encode("utf-8")
+    req = urllib.request.Request(
+        "http://127.0.0.1:8000/query",
+        data=payload,
+        headers={"Content-Type": "application/json"},
+    )
     try:
         with urllib.request.urlopen(req, timeout=30) as response:
-            if response.getcode() == 200:
-                res_data = json.loads(response.read().decode('utf-8'))
-                print(f"\n{BOLD}{CYAN}=== AQUEITAS INTELLIGENCE RETRIEVAL ==={RESET}\n")
-                print(f"{BOLD}{BLUE}[ANSWER]{RESET}")
-                print(f"{res_data['answer']}\n")
-                print(f"{BOLD}{YELLOW}[SOURCES]{RESET}")
-                if not res_data['sources']:
-                    print("  No historical logs matched this query.")
-                else:
-                    for idx, src in enumerate(res_data['sources'], 1):
-                        print(f"  {idx}. {BOLD}{src['project_name']}{RESET} (Log ID: {src['log_id']})")
-                print("\n" + "="*39 + "\n")
+            res_data = json.loads(response.read().decode("utf-8"))
+            print(f"\n{BOLD}{CYAN}=== AQUEITAS INTELLIGENCE RETRIEVAL ==={RESET}\n")
+            print(f"{BOLD}{BLUE}[ANSWER]{RESET}")
+            print(f"{res_data['answer']}\n")
+            print(f"{BOLD}{YELLOW}[SOURCES]{RESET}")
+            if not res_data.get("sources"):
+                print("  No historical logs matched this query.")
+            else:
+                for idx, src in enumerate(res_data["sources"], 1):
+                    print(f"  {idx}. {BOLD}{src['project_name']}{RESET} (Log ID: {src['log_id']})")
+            print("\n" + "=" * 39 + "\n")
     except Exception as e:
-        print_status(f"Retreival failed: {e}", "error")
+        print_status(f"Retrieval failed: {e}", "error")
 
+
+# ── logs ──────────────────────────────────────────────────────────────────────
 def logs(limit=10):
     import urllib.request
     try:
-        with urllib.request.urlopen(f"http://127.0.0.1:8000/logs?limit={limit}", timeout=5) as response:
-            if response.getcode() == 200:
-                data = json.loads(response.read().decode('utf-8'))
-                print(f"\n{BOLD}{CYAN}=== RECENT ENGINEERING LOGS ==={RESET}\n")
-                for log in data:
-                    print(f"{YELLOW}{log['created_at'][:19]}{RESET} | {BOLD}{log['project_name']}{RESET}")
-                    # Print first line of content
-                    first_line = log['log_content'].split('\n')[0]
-                    print(f"  {first_line[:80]}...")
-                print("\n" + "="*30 + "\n")
+        with urllib.request.urlopen(
+            f"http://127.0.0.1:8000/logs?limit={limit}", timeout=5
+        ) as response:
+            data = json.loads(response.read().decode("utf-8"))
+            print(f"\n{BOLD}{CYAN}=== RECENT ENGINEERING LOGS ==={RESET}\n")
+            for log in data:
+                print(f"  {YELLOW}{log['created_at'][:19]}{RESET}  {BOLD}{log['project_name']}{RESET}")
+                first_line = log["log_content"].split("\n")[0]
+                print(f"  {GRAY}{first_line[:80]}...{RESET}")
+            print("\n" + "=" * 30 + "\n")
     except Exception as e:
         print_status(f"Failed to fetch logs: {e}", "error")
 
-def doctor():
-    print(f"\n{BOLD}{CYAN}=== AQUEITAS DIAGNOSTIC DOCTOR ==={RESET}\n")
-    
-    # 1. Check .env
-    env_file = BRAIN_DIR / ".env"
-    if not env_file.exists():
-        print_status(".env file missing in brain directory.", "error")
-    else:
-        print_status(".env file found.", "success")
-        load_dotenv(env_file)
-        
-        # 2. Check API Keys
-        for key in ["DEEPSEEK_API_KEY", "OPENAI_API_KEY"]:
-            val = os.getenv(key)
-            if not val or "your_" in val:
-                print_status(f"{key} is not configured properly.", "error")
-            else:
-                print_status(f"{key} is configured.", "success")
-                
-    # 3. Check Docker
-    docker_check = run_cmd("docker ps --filter name=aqueitas-vault --format '{{.Status}}'", capture=True)
-    if "Up" in docker_check:
-        print_status("Sovereign Vault (Postgres) is online.", "success")
-    else:
-        print_status("Sovereign Vault is offline. Run 'aq start'.", "error")
-        
-    # 4. Check Python & Venv
-    if PYTHON_EXEC.exists():
-        print_status(f"Python virtual environment is ready.", "success")
-    else:
-        print_status("Virtual environment missing. Run 'aq install'.", "error")
-        
-    print("\n" + "="*30 + "\n")
 
+# ── main ──────────────────────────────────────────────────────────────────────
 def main():
-    # Add load_dotenv import at the top level of this function or script
-    from dotenv import load_dotenv
-    parser = argparse.ArgumentParser(description="Aqueitas Engineering OS CLI")
-    subparsers = parser.add_subparsers(dest="command", help="Command to execute")
-    
-    subparsers.add_parser("install", help="Install dependencies and setup environment")
-    subparsers.add_parser("start", help="Start the Vault and Brain services")
-    subparsers.add_parser("status", help="Check the status of Aqueitas services")
-    subparsers.add_parser("doctor", help="Run deep diagnostics")
-    subparsers.add_parser("logs", help="View recent logs")
-    
-    ask_parser = subparsers.add_parser("ask", help="Query the technical memory")
-    ask_parser.add_argument("query", help="What do you want to know?")
-    ask_parser.add_argument("--limit", type=int, default=5, help="Number of sources to retrieve")
-    
+    parser = argparse.ArgumentParser(
+        prog="aq",
+        description="Aqueitas Engineering OS — CLI",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog=(
+            "Typical first-time setup:\n"
+            "  1. python aq.py configure   ← interactive wizard (run once)\n"
+            "  2. python aq.py install     ← bootstrap venv + git hooks\n"
+            "  3. python aq.py start       ← boot vault + brain\n"
+            "  4. python aq.py status      ← verify everything is live\n"
+        ),
+    )
+    sub = parser.add_subparsers(dest="command", metavar="command")
+
+    sub.add_parser("configure", help="Interactive wizard — write .env files from API keys")
+    sub.add_parser("install",   help="Create venv, install deps, configure Git sensor")
+    sub.add_parser("start",     help="Start Vault (Docker) and Brain (FastAPI)")
+    sub.add_parser("status",    help="Quick health-check of all three services")
+    sub.add_parser("doctor",    help="Deep diagnostics — keys, files, hooks, connectivity")
+    sub.add_parser("logs",      help="View the 10 most recent ingested commit logs")
+
+    ask_p = sub.add_parser("ask", help="Query your technical memory")
+    ask_p.add_argument("query",   help="Natural-language question")
+    ask_p.add_argument("--limit", type=int, default=5, help="Max sources to return (default 5)")
+
     args = parser.parse_args()
 
-    if args.command == "install":
-        install()
-    elif args.command == "start":
-        start()
-    elif args.command == "status":
-        status()
-    elif args.command == "doctor":
-        doctor()
-    elif args.command == "logs":
-        logs()
+    dispatch = {
+        "configure": configure,
+        "install":   install,
+        "start":     start,
+        "status":    status,
+        "doctor":    doctor,
+        "logs":      logs,
+    }
+
+    if args.command in dispatch:
+        dispatch[args.command]()
     elif args.command == "ask":
         ask(args.query, args.limit)
     else:
         parser.print_help()
+
 
 if __name__ == "__main__":
     main()

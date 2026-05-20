@@ -1,47 +1,88 @@
-# Aqueitas: The Sovereign Engineering Operating System (EngOS)
+# Aqueitas — The Sovereign Engineering OS
 
-Aqueitas executes the death of "passive forgetting" in software engineering. By automatically intercepting the byproduct of daily engineering (the code diff) and mathematically mapping its underlying logic, Aqueitas constructs an **Active Technical Memory**. It ensures that no effort is ephemeral, turning every keystroke into an undeniable, queryable intellectual asset.
+> Every commit you write contains two things: **what changed**, and **why it changed**. Most engineering teams permanently lose the second one. Aqueitas captures both — automatically, on every commit, forever.
 
----
-
-## ⚡ See It In Action
-
-*[Demo Video / GIF Goes Here — Show a real commit being intercepted, the 2-5 second reasoning block, and an `aq-ask` retrieval]*
+*[Demo GIF — commit intercepted → 2-second reasoning → `aq ask` retrieval → answer]*
 
 ---
 
-## 🚀 Quickstart: Run Aqueitas in 5 Minutes
+## ⚡ Get Running in 3 Steps
 
 ### Prerequisites
-- Docker & Docker Compose
-- Python 3.10+
-- Git
+- [Python 3.10+](https://python.org/downloads) — check with `python --version`
+- [Docker Desktop](https://docker.com/products/docker-desktop) — must be running
+- [Git](https://git-scm.com)
 
-### 1. Initialize Aqueitas
-Install dependencies, setup the virtual environment, and configure global Git sensors:
-```bash
-python aq.py install
-```
-*Note: Edit `brain/.env` with your API keys after this command.*
+---
 
-### 2. Boot the Engine
-Start the PostgreSQL Vault and the Intelligence Brain automatically:
-```bash
-python aq.py start
-```
+### Step 1 — Configure (run once)
 
-### 3. Verify Status
-Check if everything is running correctly:
+Double-click **`CONFIGURE_AQUEITAS.bat`**
+
+The wizard will ask for your API keys and write your configuration files automatically. No manual file editing.
+
+> You'll need:
+> - An **OpenAI key** → [platform.openai.com/api-keys](https://platform.openai.com/api-keys) *(used for embeddings only — ~$0.02/1M tokens)*
+> - A **DeepSeek key** → [platform.deepseek.com/api_keys](https://platform.deepseek.com/api_keys) *(used for reasoning only — ~$0.14/1M tokens)*
+
+---
+
+### Step 2 — Install (run once)
+
+Double-click **`INSTALL_AQUEITAS.bat`**
+
+This creates the Python environment, installs dependencies, and activates the global Git commit sensor. Takes ~60 seconds on first run.
+
+---
+
+### Step 3 — Start (run daily)
+
+Double-click **`START_AQUEITAS.bat`**
+
+Boots the PostgreSQL Vault and the Intelligence Brain. After a few seconds, verify everything is healthy:
+
 ```bash
 python aq.py status
 ```
-*Any commit you make globally will now be intercepted, analyzed, and embedded into your Sovereign Vault.*
 
 ---
 
-## 🏗️ The Aqueitas 2.0 Architecture
+**That's it.** Every Git commit you make — in any project — is now automatically intercepted, reasoned about, and embedded into your Sovereign Vault.
 
-The system is strictly divided into four operational layers leveraging open-source, scalable technologies:
+---
+
+## 🔍 Querying Your Technical Memory
+
+```bash
+# Ask a question about your engineering history
+python aq.py ask "how did I implement the authentication flow in the DMS project?"
+
+# View recent ingested commits
+python aq.py logs
+
+# Full system health check
+python aq.py doctor
+```
+
+---
+
+## 🖥️ Full CLI Reference
+
+| Command | When to use |
+|---|---|
+| `python aq.py configure` | First-time setup — write `.env` files from API keys |
+| `python aq.py install` | First-time setup — create venv, install deps, activate sensor |
+| `python aq.py start` | Every session — boot the Vault and Brain |
+| `python aq.py status` | Quick health check |
+| `python aq.py doctor` | Deep diagnostics — keys, files, connectivity |
+| `python aq.py ask "..."` | Query your technical memory |
+| `python aq.py logs` | View the 10 most recent ingested commits |
+
+---
+
+## 🏗️ Architecture
+
+The system is divided into four operational layers:
 
 ```mermaid
 graph TD
@@ -62,34 +103,37 @@ graph TD
     end
 
     subgraph "Phase 4: The Retrieval Engine"
-        G[aq-ask CLI] -->|Query| F
+        G[aq ask CLI] -->|Query| F
         F -->|HNSW Vector Search| G
         G -->|Zero-Hallucination RAG| H((Human Engineer))
     end
 ```
 
-### Phase Breakdown:
-1. **The Sovereign Vault:** PostgreSQL + `pgvector`. Data sovereignty prioritized natively handling 1536-dimensional embeddings with HNSW indexing.
-2. **The Ingestion Engine:** FastAPI + `asyncpg` + DeepSeek/OpenAI hybrid routing. Extracts the "Why" (Intentionality) behind a code change and mathematically encodes it.
-3. **The Sensor:** Global Git hooks (`core.hooksPath`) intercepting commits synchronously.
-4. **The Retrieval Engine:** Vector search orchestration via CLI (`aq-ask`) constrained by a Zero-Hallucination Protocol.
+| Layer | Technology | Role |
+|---|---|---|
+| Sovereign Vault | PostgreSQL + pgvector | Stores commit embeddings (1536-dimensional HNSW index) |
+| Ingestion Engine | FastAPI + asyncpg | Extracts the *why* behind every code change |
+| Sensor | Global Git hook | Intercepts commits across every project on your machine |
+| Retrieval Engine | aq CLI + vector search | Zero-hallucination answers grounded in your actual history |
 
 ---
 
-## 📖 Deep Dive & Philosophy
+## 💡 Cost Model
 
-Aqueitas evolved from a lightweight documentation script (1.0) into a mathematically rigorous Engineering Operating System (2.0) that prioritizes data sovereignty and eliminates SaaS lock-in. 
+The entire system runs on two cheap API calls per commit:
 
-To understand the core philosophy and the technical evolution, read our detailed internal documents:
+| Model | Provider | Use | Cost |
+|---|---|---|---|
+| `deepseek-chat` | DeepSeek | Reasoning / intent extraction | ~$0.14 / 1M tokens |
+| `text-embedding-3-small` | OpenAI | 1536-dimensional embedding | ~$0.02 / 1M tokens |
+
+A typical commit costs under **$0.001** to ingest. Thousands of commits per month cost fractions of a cent.
+
+---
+
+## 📖 Philosophy
+
+Aqueitas evolved from a lightweight documentation script (1.0) into a mathematically rigorous Engineering Operating System (2.0) built on data sovereignty and zero SaaS lock-in.
+
 - [The Aqueitas Manifesto](docs/AQUEITAS_MANIFESTO.md)
 - [Aqueitas 2.0: Dissertation & Architecture](docs/Aqueitas_2.0_Dissertation.txt)
-
----
-
-## 💡 Financial & Operational Efficiency
-
-The entire system is architected under the mandate of "Efficiency over Excess." By utilizing DeepSeek for reasoning ($0.14/1M tokens) and OpenAI for embeddings ($0.02/1M tokens), the API cost to ingest and retrieve thousands of code commits per month is fractions of a cent. 
-
-## 🌍 Global Impact
-
-The current industry standard relies on fragmented documentation (Notion, Slack, Jira) which inevitably fails under pressure, resulting in the mass evaporation of intellectual property. Aqueitas 2.0 redefines the relationship between the engineer and their output. It elevates the operator from a laborer writing syntax into a commander orchestrating captured intelligence.
