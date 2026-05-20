@@ -9,12 +9,27 @@ import string
 import time
 from pathlib import Path
 
-# ── Soft-import dotenv (available after `aq install`, not before) ─────────────
-try:
-    from dotenv import load_dotenv as _load_dotenv
-    def load_dotenv(path): _load_dotenv(path)
-except ImportError:
-    def load_dotenv(path): pass  # graceful no-op before venv exists
+# ── Force UTF-8 output on Windows (prevents cp1252 UnicodeEncodeError) ───────
+if sys.stdout.encoding and sys.stdout.encoding.lower() not in ("utf-8", "utf-8-sig"):
+    sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+    sys.stderr.reconfigure(encoding="utf-8", errors="replace")
+
+# ── Stdlib .env loader (no pip dependency — works before venv exists) ─────────
+def load_dotenv(path):
+    """Parse a .env file and inject values into os.environ. Zero dependencies."""
+    try:
+        with open(path, encoding="utf-8") as f:
+            for line in f:
+                line = line.strip()
+                if not line or line.startswith("#") or "=" not in line:
+                    continue
+                key, _, val = line.partition("=")
+                key = key.strip()
+                val = val.strip().strip('"').strip("'")
+                if key:
+                    os.environ.setdefault(key, val)
+    except (OSError, IOError):
+        pass  # file doesn't exist yet — safe to ignore
 
 # ── ANSI colors ───────────────────────────────────────────────────────────────
 BLUE  = "\033[94m"
@@ -42,8 +57,8 @@ def print_status(msg, status="info"):
         "success": f"{BOLD}{GREEN}[OK]{RESET}",
         "warning": f"{BOLD}{YELLOW}[WARN]{RESET}",
         "error":   f"{BOLD}{RED}[ERROR]{RESET}",
-        "bolt":    f"{BOLD}{CYAN}⚡{RESET}",
-        "step":    f"{BOLD}{CYAN}──▶{RESET}",
+        "bolt":    f"{BOLD}{CYAN}**{RESET}",
+        "step":    f"{BOLD}{CYAN}>>{RESET}",
     }
     print(f"  {icons.get(status, icons['info'])} {msg}")
 
@@ -419,10 +434,10 @@ def main():
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog=(
             "Typical first-time setup:\n"
-            "  1. python aq.py configure   ← interactive wizard (run once)\n"
-            "  2. python aq.py install     ← bootstrap venv + git hooks\n"
-            "  3. python aq.py start       ← boot vault + brain\n"
-            "  4. python aq.py status      ← verify everything is live\n"
+            "  1. python aq.py configure   << interactive wizard (run once)\n"
+            "  2. python aq.py install     << bootstrap venv + git hooks\n"
+            "  3. python aq.py start       << boot vault + brain\n"
+            "  4. python aq.py status      << verify everything is live\n"
         ),
     )
     sub = parser.add_subparsers(dest="command", metavar="command")
