@@ -1,5 +1,7 @@
 # Aqueitas — The Sovereign Engineering OS
 
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE) [![Python 3.10+](https://img.shields.io/badge/python-3.10%2B-blue)](https://python.org) [![Docker Required](https://img.shields.io/badge/docker-required-informational)](https://docker.com)
+
 > Every commit you write contains two things: **what changed**, and **why it changed**. Most engineering teams permanently lose the second one. Aqueitas captures both — automatically, on every commit, forever.
 
 *[Demo GIF — commit intercepted → 2-second reasoning → `aq ask` retrieval → answer]*
@@ -17,19 +19,31 @@
 
 ### Step 1 — Configure (run once)
 
-Double-click **`CONFIGURE_AQUEITAS.bat`**
-
-The wizard will ask for your API keys and write your configuration files automatically. No manual file editing.
-
 > You'll need:
-> - An **OpenAI key** → [platform.openai.com/api-keys](https://platform.openai.com/api-keys) *(used for embeddings only — ~$0.02/1M tokens)*
-> - A **DeepSeek key** → [platform.deepseek.com/api_keys](https://platform.deepseek.com/api_keys) *(used for reasoning only — ~$0.14/1M tokens)*
+> - An **OpenAI key** → [platform.openai.com/api-keys](https://platform.openai.com/api-keys) *(embeddings — ~$0.02/1M tokens)*
+> - A **DeepSeek key** → [platform.deepseek.com/api_keys](https://platform.deepseek.com/api_keys) *(reasoning — ~$0.14/1M tokens)*
+
+**Windows** — Double-click **`CONFIGURE_AQUEITAS.bat`** (interactive wizard, no manual file editing)
+
+**Mac / Linux:**
+```bash
+cp .env.example .env
+# Edit .env and fill in OPENAI_API_KEY and DEEPSEEK_API_KEY
+
+cp brain/.env.example brain/.env
+# Edit brain/.env with the same keys
+```
 
 ---
 
 ### Step 2 — Install (run once)
 
-Double-click **`INSTALL_AQUEITAS.bat`**
+**Windows** — Double-click **`INSTALL_AQUEITAS.bat`**
+
+**Mac / Linux:**
+```bash
+chmod +x setup.sh && ./setup.sh
+```
 
 This creates the Python environment, installs dependencies, and activates the global Git commit sensor. Takes ~60 seconds on first run.
 
@@ -37,12 +51,18 @@ This creates the Python environment, installs dependencies, and activates the gl
 
 ### Step 3 — Start (run daily)
 
-Double-click **`START_AQUEITAS.bat`**
+**Windows** — Double-click **`START_AQUEITAS.bat`**
 
-Boots the PostgreSQL Vault and the Intelligence Brain. After a few seconds, verify everything is healthy:
+**Mac / Linux:**
+```bash
+docker-compose up -d          # boot the Vault
+python3 aq.py start           # boot the Brain
+```
+
+After a few seconds, verify everything is healthy:
 
 ```bash
-python aq.py status
+python3 aq.py doctor
 ```
 
 ---
@@ -137,3 +157,13 @@ Aqueitas evolved from a lightweight documentation script (1.0) into a mathematic
 
 - [The Aqueitas Manifesto](docs/AQUEITAS_MANIFESTO.md)
 - [Aqueitas 2.0: Dissertation & Architecture](docs/Aqueitas_2.0_Dissertation.txt)
+
+---
+
+## 🤝 Contributing
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines. This project uses [Conventional Commits](https://www.conventionalcommits.org/) — your commit messages should meet the same bar as the tool itself.
+
+## ⚖️ License
+
+MIT — see [LICENSE](LICENSE).
