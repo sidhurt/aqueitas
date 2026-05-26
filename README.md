@@ -4,7 +4,7 @@
 
 > Every commit you write contains two things: **what changed**, and **why it changed**. Most engineering teams permanently lose the second one. Aqueitas captures both — automatically, on every commit, forever.
 
-*[Demo GIF — commit intercepted → 2-second reasoning → `aq ask` retrieval → answer]*
+![Aqueitas demo: aq ask retrieving engineering intent from a commit](docs/demo.gif)
 
 ---
 
