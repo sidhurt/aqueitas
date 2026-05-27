@@ -1,13 +1,25 @@
 import urllib.request
 import json
+import os
 import psycopg2
+from pathlib import Path
+
+# Load root .env (mirrors aq.py stdlib loader — no pip dependency)
+_env_path = Path(__file__).parent.parent / ".env"
+if _env_path.exists():
+    for _line in _env_path.read_text(encoding="utf-8").splitlines():
+        _line = _line.strip()
+        if not _line or _line.startswith("#") or "=" not in _line:
+            continue
+        _k, _, _v = _line.partition("=")
+        os.environ.setdefault(_k.strip(), _v.strip().strip('"').strip("'"))
 
 # 1. Ensure a dummy project exists in the database
 try:
     conn = psycopg2.connect(
-        dbname="aqueitas_db",
-        user="aqueitas_admin",
-        password="sovereign_password_123",
+        dbname=os.getenv("DB_NAME", "aqueitas_db"),
+        user=os.getenv("DB_USER", "aqueitas_admin"),
+        password=os.getenv("DB_PASSWORD"),
         host="127.0.0.1",
         port="5433"
     )

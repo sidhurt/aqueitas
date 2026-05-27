@@ -1,3 +1,4 @@
+from contextlib import asynccontextmanager
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from database import db
@@ -5,10 +6,17 @@ from models import LogRequest, LogResponse, QueryRequest, QueryResponse, SourceR
 from services.embedding import extract_context, generate_embedding
 from services.retrieval import search_vault, synthesize_answer
 
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    await db.connect()
+    yield
+    await db.disconnect()
+
 app = FastAPI(
     title="Aqueitas Brain",
     description="The Intelligence Layer of the Aqueitas EngOS",
-    version="2.0.0"
+    version="2.0.0",
+    lifespan=lifespan
 )
 
 # Enable CORS for frontend integration
@@ -19,14 +27,6 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
-
-@app.on_event("startup")
-async def startup_event():
-    await db.connect()
-
-@app.on_event("shutdown")
-async def shutdown_event():
-    await db.disconnect()
 
 @app.post("/log", response_model=LogResponse)
 async def ingest_log(request: LogRequest):
