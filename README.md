@@ -27,6 +27,11 @@
 
 **Mac / Linux:**
 ```bash
+python3 aq.py configure
+```
+
+Or manually:
+```bash
 cp .env.example .env
 # Edit .env and fill in OPENAI_API_KEY and DEEPSEEK_API_KEY
 
@@ -43,6 +48,7 @@ cp brain/.env.example brain/.env
 **Mac / Linux:**
 ```bash
 chmod +x setup.sh && ./setup.sh
+# or: python3 aq.py install
 ```
 
 This creates the Python environment, installs dependencies, and activates the global Git commit sensor. Takes ~60 seconds on first run.

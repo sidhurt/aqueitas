@@ -438,6 +438,9 @@ def main():
             "  2. python aq.py install     << bootstrap venv + git hooks\n"
             "  3. python aq.py start       << boot vault + brain\n"
             "  4. python aq.py status      << verify everything is live\n"
+            "\n"
+            "On Mac / Linux, use python3 instead of python:\n"
+            "  python3 aq.py configure\n"
         ),
     )
     sub = parser.add_subparsers(dest="command", metavar="command")
