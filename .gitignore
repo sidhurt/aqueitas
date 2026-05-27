@@ -25,3 +25,6 @@ Thumbs.db
 
 # Demo artifacts
 demo-api/
+
+# Backup files
+*.bak
