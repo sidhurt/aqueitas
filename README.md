@@ -43,12 +43,14 @@ cp brain/.env.example brain/.env
 
 ### Step 2 — Install (run once)
 
-**Windows** — Double-click **`INSTALL_AQUEITAS.bat`**
+**Windows** — Double-click **`INSTALL_AQUEITAS.bat`**, or in a terminal:
+```bat
+python aq.py install
+```
 
 **Mac / Linux:**
 ```bash
-chmod +x setup.sh && ./setup.sh
-# or: python3 aq.py install
+python3 aq.py install
 ```
 
 This creates the Python environment, installs dependencies, and activates the global Git commit sensor. Takes ~60 seconds on first run.
@@ -57,17 +59,23 @@ This creates the Python environment, installs dependencies, and activates the gl
 
 ### Step 3 — Start (run daily)
 
-**Windows** — Double-click **`START_AQUEITAS.bat`**
+**Windows** — Double-click **`START_AQUEITAS.bat`**, or in a terminal:
+```bat
+python aq.py start
+```
 
 **Mac / Linux:**
 ```bash
-docker-compose up -d          # boot the Vault
-python3 aq.py start           # boot the Brain
+python3 aq.py start
 ```
 
 After a few seconds, verify everything is healthy:
 
 ```bash
+# Windows
+python aq.py doctor
+
+# Mac / Linux
 python3 aq.py doctor
 ```
 
@@ -94,6 +102,8 @@ python aq.py doctor
 
 ## 🖥️ Full CLI Reference
 
+> On **Mac / Linux**, replace `python` with `python3` in all commands below.
+
 | Command | When to use |
 |---|---|
 | `python aq.py configure` | First-time setup — write `.env` files from API keys |
@@ -103,6 +113,7 @@ python aq.py doctor
 | `python aq.py doctor` | Deep diagnostics — keys, files, connectivity |
 | `python aq.py ask "..."` | Query your technical memory |
 | `python aq.py logs` | View the 10 most recent ingested commits |
+| `python aq.py replay` | Re-ingest commits queued while the Brain was offline |
 
 ---
 

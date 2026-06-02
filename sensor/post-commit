@@ -1,2 +1,3 @@
 #!/bin/sh
-python "$(dirname "$0")/post-commit.py"
+PYTHON=$(command -v python3 2>/dev/null || command -v python 2>/dev/null)
+"$PYTHON" "$(dirname "$0")/post-commit.py"

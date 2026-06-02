@@ -200,8 +200,11 @@ def configure():
     print(f"  {BOLD}{GREEN}✅  Configuration complete!{RESET}")
     divider("─")
     print(f"  {GRAY}Next step — run the installer:{RESET}")
-    print(f"  {BOLD}  Double-click: INSTALL_AQUEITAS.bat{RESET}")
-    print(f"  {GRAY}  Or terminal:  python aq.py install{RESET}")
+    if os.name == "nt":
+        print(f"  {BOLD}  Double-click: INSTALL_AQUEITAS.bat{RESET}")
+        print(f"  {GRAY}  Or terminal:  python aq.py install{RESET}")
+    else:
+        print(f"  {BOLD}  python3 aq.py install{RESET}")
     print()
 
 
@@ -257,9 +260,12 @@ def install():
     print(f"  {BOLD}{GREEN}✅  Aqueitas installed!{RESET}")
     divider("─")
     print(f"  {GRAY}Start the engine:{RESET}")
-    print(f"  {BOLD}  Double-click: START_AQUEITAS.bat{RESET}")
-    print(f"  {GRAY}  Or terminal:  python aq.py start{RESET}")
-    print(f"  {GRAY}  Verify:       python aq.py doctor{RESET}")
+    if os.name == "nt":
+        print(f"  {BOLD}  Double-click: START_AQUEITAS.bat{RESET}")
+        print(f"  {GRAY}  Or terminal:  python aq.py start{RESET}")
+    else:
+        print(f"  {BOLD}  python3 aq.py start{RESET}")
+    print(f"  {GRAY}  Verify:       python{'3' if os.name != 'nt' else ''} aq.py doctor{RESET}")
     print()
 
 
