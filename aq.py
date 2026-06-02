@@ -295,6 +295,21 @@ def start():
 
     print_status("Brain is launching. Give it 3 seconds, then run: python aq.py status", "success")
 
+    # ── Offline-queue reminder ─────────────────────────────────────────────────
+    queue_file = SENSOR_DIR / "queue.jsonl"
+    if queue_file.exists():
+        try:
+            pending = sum(1 for line in queue_file.read_text(encoding="utf-8").splitlines() if line.strip())
+            if pending:
+                print()
+                print_status(
+                    f"{BOLD}{YELLOW}{pending} commit(s){RESET} are queued from when the Brain was offline.",
+                    "warning"
+                )
+                print_status("Once the Brain is live, run: python aq.py replay", "info")
+        except Exception:
+            pass
+
 
 # ── status ────────────────────────────────────────────────────────────────────
 def status():
@@ -426,6 +441,98 @@ def logs(limit=10):
         print_status(f"Failed to fetch logs: {e}", "error")
 
 
+# ── replay ────────────────────────────────────────────────────────────────────
+def replay():
+    """
+    Re-ingests commits that were queued while the Brain was offline.
+    Reads sensor/queue.jsonl, POSTs each entry to the live Brain,
+    and removes successfully replayed entries from the queue.
+    """
+    import urllib.request
+    import urllib.error
+
+    queue_file = SENSOR_DIR / "queue.jsonl"
+
+    print()
+    print(f"  {BOLD}{CYAN}⚡  AQUEITAS OFFLINE QUEUE REPLAY{RESET}")
+    divider("═")
+
+    if not queue_file.exists():
+        print_status("Queue is empty — nothing to replay.", "success")
+        print()
+        return
+
+    raw_lines = [line.strip() for line in queue_file.read_text(encoding="utf-8").splitlines() if line.strip()]
+    if not raw_lines:
+        print_status("Queue is empty — nothing to replay.", "success")
+        print()
+        return
+
+    print_status(f"Found {BOLD}{len(raw_lines)}{RESET} queued commit(s). Replaying...", "info")
+    divider()
+
+    failed_lines = []
+    replayed = 0
+
+    for idx, line in enumerate(raw_lines, 1):
+        try:
+            entry = json.loads(line)
+        except json.JSONDecodeError:
+            print_status(f"[{idx}] Skipping malformed queue entry.", "warning")
+            continue
+
+        # Strip queue metadata — Brain only needs these three fields
+        payload = {
+            "project_name": entry.get("project_name", "unknown"),
+            "git_diff":     entry.get("git_diff", ""),
+            "commit_msg":   entry.get("commit_msg", ""),
+        }
+        queued_at = entry.get("queued_at", "unknown time")
+        label = f"{BOLD}{payload['project_name']}{RESET} (queued {queued_at[:19]})"
+
+        data = json.dumps(payload).encode("utf-8")
+        req  = urllib.request.Request(
+            "http://127.0.0.1:8000/log",
+            data=data,
+            headers={"Content-Type": "application/json"},
+        )
+
+        try:
+            with urllib.request.urlopen(req, timeout=30) as response:
+                if response.getcode() == 200:
+                    print_status(f"[{idx}/{len(raw_lines)}] Replayed → {label}", "success")
+                    replayed += 1
+                else:
+                    print_status(f"[{idx}/{len(raw_lines)}] Brain returned {response.getcode()} — keeping in queue.", "warning")
+                    failed_lines.append(line)
+        except urllib.error.URLError as e:
+            reason = str(e.reason)
+            if "Connection refused" in reason or "No connection" in reason:
+                print_status(f"[{idx}/{len(raw_lines)}] Brain is offline — stopping replay.", "error")
+                # Keep this and all remaining entries
+                failed_lines.extend(raw_lines[idx - 1:])
+                break
+            else:
+                print_status(f"[{idx}/{len(raw_lines)}] Network error ({reason}) — keeping in queue.", "warning")
+                failed_lines.append(line)
+        except Exception as e:
+            print_status(f"[{idx}/{len(raw_lines)}] Unexpected error ({e}) — keeping in queue.", "warning")
+            failed_lines.append(line)
+
+    # ── Rewrite queue with only the entries that failed ───────────────────────
+    if failed_lines:
+        queue_file.write_text("\n".join(failed_lines) + "\n", encoding="utf-8")
+    else:
+        queue_file.unlink(missing_ok=True)
+
+    divider("═")
+    print_status(f"{replayed}/{len(raw_lines)} commit(s) successfully replayed.",
+                 "success" if replayed == len(raw_lines) else "warning")
+    if failed_lines:
+        print_status(f"{len(failed_lines)} commit(s) remain in queue for next replay.", "info")
+    print()
+
+
 # ── main ──────────────────────────────────────────────────────────────────────
 def main():
     parser = argparse.ArgumentParser(
@@ -451,6 +558,7 @@ def main():
     sub.add_parser("status",    help="Quick health-check of all three services")
     sub.add_parser("doctor",    help="Deep diagnostics — keys, files, hooks, connectivity")
     sub.add_parser("logs",      help="View the 10 most recent ingested commit logs")
+    sub.add_parser("replay",    help="Re-ingest commits queued while the Brain was offline")
 
     ask_p = sub.add_parser("ask", help="Query your technical memory")
     ask_p.add_argument("query",   help="Natural-language question")
@@ -465,6 +573,7 @@ def main():
         "status":    status,
         "doctor":    doctor,
         "logs":      logs,
+        "replay":    replay,
     }
 
     if args.command in dispatch:

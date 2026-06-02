@@ -28,3 +28,6 @@ demo-api/
 
 # Backup files
 *.bak
+
+# Offline commit queue (runtime state — never commit)
+sensor/queue.jsonl
