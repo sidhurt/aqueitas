@@ -1,10 +1,23 @@
+import logging
 from contextlib import asynccontextmanager
+from pydantic import BaseModel
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from database import db
 from models import LogRequest, LogResponse, QueryRequest, QueryResponse, SourceReference
 from services.embedding import extract_context, generate_embedding
 from services.retrieval import search_vault, synthesize_answer
+
+import uuid
+import sys
+import os
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+from services.aws_dispatcher import AtlasDispatcher
+
+class WorkerTelemetry(BaseModel):
+    intent_id: str
+    status: str
+    message: str
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -126,3 +139,43 @@ async def get_recent_logs(limit: int = 10):
         """
         rows = await connection.fetch(query, limit)
         return [dict(row) for row in rows]
+
+class DispatchRequest(BaseModel):
+    user_request: str
+
+def handle_complex_task(user_request: str):
+    print("AQUEITAS: Task complexity exceeds local threshold. Delegating to Atlas.")
+    
+    # 1. Generate a unique tracking ID for this specific mission
+    mission_id = f"msn-{uuid.uuid4().hex[:8]}"
+    
+    # 2. Define the exact IP address Atlas needs to send the data back to (Your Tailscale IP)
+    my_tailscale_ip = "100.x.y.z" # Replace with your machine's actual Tailscale IP
+    
+    # 3. Fire the weapon
+    dispatcher = AtlasDispatcher()
+    
+    try:
+        task_arn = dispatcher.launch_worker(
+            mission_id=mission_id,
+            mission_prompt=user_request,
+            aqueitas_tailscale_ip=my_tailscale_ip
+        )
+        print(f"AQUEITAS: Atlas node deployed. Awaiting callback for {mission_id}...")
+        return {"status": "dispatched", "mission_id": mission_id, "task_arn": task_arn}
+    except Exception as e:
+        print(f"AQUEITAS: Delegation failed. {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/dispatch")
+async def dispatch_task(request: DispatchRequest):
+    """
+    Endpoint that simulates the orchestrator deciding a workload is too heavy or dangerous.
+    Calls the AtlasDispatcher.
+    """
+    return handle_complex_task(request.user_request)
+
+@app.post("/webhook")
+async def receive_worker_telemetry(payload: WorkerTelemetry):
+    logging.info(f"⚡ [AWS WORKER SIGNAL] Intent: {payload.intent_id} | Status: {payload.status} | Msg: {payload.message}")
+    return {"status": "acknowledged", "recorded_state": payload.status}
