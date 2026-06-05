@@ -290,7 +290,7 @@ def start():
     if os.name == "nt":
         cmd = (
             f"Start-Process powershell -ArgumentList '-NoExit','-Command',"
-            f"\"Set-Location '{BRAIN_DIR}'; & '{uvicorn_exec}' main:app --port 8000 --reload\""
+            f"\"Set-Location '{BRAIN_DIR}'; & '{uvicorn_exec}' main:app --host 0.0.0.0 --port 8000 --reload\""
         )
         subprocess.Popen(["powershell", "-Command", cmd], shell=False)
     else:

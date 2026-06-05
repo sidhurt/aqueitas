@@ -36,7 +36,7 @@ if (-Not (Test-Path $Uvicorn)) {
 }
 
 # Launch uvicorn in a NEW, visible terminal window so you can see its live logs
-Start-Process powershell -ArgumentList "-NoExit", "-Command", "Set-Location '$BrainDir'; & '$Uvicorn' main:app --port 8000 --reload"
+Start-Process powershell -ArgumentList "-NoExit", "-Command", "Set-Location '$BrainDir'; & '$Uvicorn' main:app --host 0.0.0.0 --port 8000 --reload"
 
 Write-Host "  [OK] Brain launched in a new window." -ForegroundColor Green
 Write-Host ""

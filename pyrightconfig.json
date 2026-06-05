@@ -1,0 +1,9 @@
+{
+  "pythonPath": "c:/Users/lenovo/projects/aqueitas/brain/venv/Scripts/python.exe",
+  "venvPath": "c:/Users/lenovo/projects/aqueitas/brain",
+  "venv": "venv",
+  "pythonVersion": "3.12",
+  "include": [
+    "brain"
+  ]
+}

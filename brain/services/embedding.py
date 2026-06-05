@@ -15,7 +15,7 @@ openai_client = AsyncOpenAI(
     api_key=os.getenv("OPENAI_API_KEY")
 )
 
-async def extract_context(git_diff: str, commit_msg: str = None) -> str:
+async def extract_context(git_diff: str, commit_msg: str | None = None) -> str:
     """
     Uses DeepSeek to deduce the intentionality ('Why') behind a code change.
     Ignores boilerplate and focuses on the technical engineering decisions.

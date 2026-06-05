@@ -4,3 +4,5 @@ asyncpg
 pydantic
 openai
 python-dotenv
+httpx
+boto3

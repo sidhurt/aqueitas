@@ -1,0 +1,5 @@
+python_interpreter = "c:/Users/lenovo/projects/aqueitas/brain/venv/Scripts/python.exe"
+
+search_path = [
+  "c:/Users/lenovo/projects/aqueitas/brain"
+]
