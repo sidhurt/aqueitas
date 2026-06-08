@@ -1,28 +1,59 @@
+import re
 from .embedding import deepseek_client, generate_embedding
 
-async def search_vault(query_embedding: list[float], limit: int, connection) -> list[dict]:
+# Keywords that signal the user wants commits ordered by time, not similarity
+_TEMPORAL_PATTERN = re.compile(
+    r"\b(last|latest|recent|newest|most recent|chronological)\b",
+    re.IGNORECASE,
+)
+
+def _is_temporal_query(query: str) -> bool:
+    """Return True when the query is asking about recency rather than semantics."""
+    return bool(_TEMPORAL_PATTERN.search(query))
+
+
+async def search_vault(
+    query_embedding: list[float],
+    limit: int,
+    connection,
+    query_text: str = "",
+) -> list[dict]:
     """
-    Executes a vector search against the engineering_logs table using the cosine distance operator (<=>).
-    Strictly enforces the limit at the database level.
+    Retrieves engineering logs from the Sovereign Vault.
+
+    - Temporal queries ("last N commits", "recent changes") are answered by
+      ordering on created_at DESC so the newest ingested commits are returned.
+    - All other queries use cosine-distance vector search for semantic relevance.
     """
-    query = """
-    SELECT e.id, p.name as project_name, e.log_content
-    FROM engineering_logs e
-    JOIN projects p ON e.project_id = p.id
-    ORDER BY e.content_embedding <=> $1::vector
-    LIMIT $2
-    """
-    
-    vector_str = f"[{','.join(str(x) for x in query_embedding)}]"
-    
-    rows = await connection.fetch(query, vector_str, limit)
-    
+    if _is_temporal_query(query_text):
+        sql = """
+        SELECT e.id, p.name AS project_name, e.log_content,
+               e.created_at
+        FROM engineering_logs e
+        JOIN projects p ON e.project_id = p.id
+        ORDER BY e.created_at DESC
+        LIMIT $1
+        """
+        rows = await connection.fetch(sql, limit)
+    else:
+        vector_str = f"[{','.join(str(x) for x in query_embedding)}]"
+        sql = """
+        SELECT e.id, p.name AS project_name, e.log_content,
+               e.created_at
+        FROM engineering_logs e
+        JOIN projects p ON e.project_id = p.id
+        ORDER BY e.content_embedding <=> $1::vector
+        LIMIT $2
+        """
+        rows = await connection.fetch(sql, vector_str, limit)
+
     results = []
     for row in rows:
         results.append({
-            "log_id": str(row['id']),
-            "project_name": row['project_name'],
-            "log_content": row['log_content']
+            "log_id": str(row["id"]),
+            "project_name": row["project_name"],
+            "log_content": row["log_content"],
+            "created_at": str(row["created_at"]),
         })
     return results
 

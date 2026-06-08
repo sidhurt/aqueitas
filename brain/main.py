@@ -122,7 +122,7 @@ async def query_vault(request: QueryRequest):
         
         # Step 2 & 3: Proximity Query with strict database limit
         async with db.pool.acquire() as connection:
-            retrieved_logs = await search_vault(query_vector, request.limit, connection)
+            retrieved_logs = await search_vault(query_vector, request.limit, connection, query_text=request.query)
             
         # Step 4: Zero-Hallucination Synthesis
         answer = await synthesize_answer(request.query, retrieved_logs)
