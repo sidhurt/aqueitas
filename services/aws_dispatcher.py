@@ -13,7 +13,7 @@ class AtlasDispatcher:
         self.task_definition = os.environ.get('AWS_ECS_TASK', 'atlas-sandbox-task')
         self.subnet = os.environ.get('AWS_SUBNET_ID', 'subnet-xxxxxxxxx')
 
-    def launch_worker(self, mission_id: str, mission_prompt: str, tailscale_authkey: str, aqueitas_tailscale_ip: str = "100.x.y.z") -> str:
+    def launch_worker(self, mission_id: str, mission_prompt: str, tailscale_authkey: str, aqueitas_tailscale_ip: str = "100.111.193.80") -> str:
         """
         Commands AWS Fargate to spin up an Atlas node and pass it a specific mission.
         Returns the Task ARN if successful, or raises an Exception.

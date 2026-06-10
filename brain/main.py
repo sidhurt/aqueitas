@@ -91,8 +91,8 @@ async def ingest_log(request: LogRequest):
             # Format the python list to pgvector literal string '[1.0, 2.0, ...]'
             vector_str = f"[{','.join(str(x) for x in vector_embedding)}]"
             
-            # Combine diff and summary into log_content
-            combined_log = f"DIFF:\n{request.git_diff}\n\nSUMMARY:\n{context_summary}"
+            # Combine commit message, diff, and summary into log_content
+            combined_log = f"COMMIT MESSAGE:\n{request.commit_msg}\n\nDIFF:\n{request.git_diff}\n\nSUMMARY:\n{context_summary}"
             
             inserted_id = await connection.fetchval(
                 log_query,
@@ -161,7 +161,7 @@ def trigger_atlas_worker(mission_id: str, mission_prompt: str):
     """
     Background task wrapper to handle the synchronous boto3 call.
     """
-    my_tailscale_ip = os.environ.get("AQUEITAS_TAILSCALE_IP", "100.x.y.z")
+    my_tailscale_ip = os.environ.get("AQUEITAS_TAILSCALE_IP", "100.111.193.80")
     auth_key = os.environ.get("TAILSCALE_AUTHKEY")
     
     if not auth_key:

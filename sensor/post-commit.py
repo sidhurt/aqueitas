@@ -46,8 +46,8 @@ def main():
         # Initial commit or no diff
         git_diff = run_cmd("git show HEAD")
 
-    # 3. Get the commit message
-    commit_msg = run_cmd("git log -1 --pretty=%B")
+    # 3. Get the full commit data (hash, author, date, message)
+    commit_msg = run_cmd("git log -1")
 
     # 4. Prepare payload
     payload = {
