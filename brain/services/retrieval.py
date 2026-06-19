@@ -26,7 +26,7 @@ async def search_vault(
     - All other queries use cosine-distance vector search for semantic relevance.
     """
     if _is_temporal_query(query_text):
-        sql = """
+        sql_logs = """
         SELECT e.id, p.name AS project_name, e.log_content,
                e.created_at
         FROM engineering_logs e
@@ -34,26 +34,93 @@ async def search_vault(
         ORDER BY e.created_at DESC
         LIMIT $1
         """
-        rows = await connection.fetch(sql, limit)
+        rows_logs = await connection.fetch(sql_logs, limit)
+        
+        sql_files = """
+        SELECT w.id, p.name AS project_name, w.file_path, w.raw_content,
+               w.timestamp AS created_at
+        FROM workspace_files w
+        JOIN projects p ON w.project_id = p.id
+        ORDER BY w.timestamp DESC
+        LIMIT $1
+        """
+        rows_files = await connection.fetch(sql_files, limit)
+        
+        combined_results = []
+        for row in rows_logs:
+            combined_results.append({
+                "log_id": str(row["id"]),
+                "project_name": row["project_name"],
+                "log_content": f"[COMMIT LOG]\n{row['log_content']}",
+                "created_at": str(row["created_at"]),
+                "sort_key": row["created_at"]
+            })
+        for row in rows_files:
+            combined_results.append({
+                "log_id": str(row["id"]),
+                "project_name": row["project_name"],
+                "log_content": f"[SOURCE FILE: {row['file_path']}]\n{row['raw_content']}",
+                "created_at": str(row["created_at"]),
+                "sort_key": row["created_at"]
+            })
+            
+        combined_results.sort(key=lambda x: x["sort_key"], reverse=True)
+        
     else:
         vector_str = f"[{','.join(str(x) for x in query_embedding)}]"
-        sql = """
+        
+        sql_logs = """
         SELECT e.id, p.name AS project_name, e.log_content,
-               e.created_at
+               e.created_at,
+               (e.content_embedding <=> $1::vector) AS distance
         FROM engineering_logs e
         JOIN projects p ON e.project_id = p.id
-        ORDER BY e.content_embedding <=> $1::vector
+        ORDER BY distance
         LIMIT $2
         """
-        rows = await connection.fetch(sql, vector_str, limit)
+        rows_logs = await connection.fetch(sql_logs, vector_str, limit)
+        
+        sql_files = """
+        SELECT w.id, p.name AS project_name, w.file_path, w.raw_content,
+               w.timestamp AS created_at,
+               (w.content_embedding <=> $1::vector) AS distance
+        FROM workspace_files w
+        JOIN projects p ON w.project_id = p.id
+        ORDER BY distance
+        LIMIT $2
+        """
+        rows_files = await connection.fetch(sql_files, vector_str, limit)
+        
+        combined_results = []
+        for row in rows_logs:
+            combined_results.append({
+                "log_id": str(row["id"]),
+                "project_name": row["project_name"],
+                "log_content": f"[COMMIT LOG]\n{row['log_content']}",
+                "created_at": str(row["created_at"]),
+                "distance": row["distance"]
+            })
+        for row in rows_files:
+            combined_results.append({
+                "log_id": str(row["id"]),
+                "project_name": row["project_name"],
+                "log_content": f"[SOURCE FILE: {row['file_path']}]\n{row['raw_content']}",
+                "created_at": str(row["created_at"]),
+                "distance": row["distance"]
+            })
+            
+        combined_results.sort(key=lambda x: x["distance"])
 
+    # Take absolute top N
+    top_results = combined_results[:limit]
+    
     results = []
-    for row in rows:
+    for res in top_results:
         results.append({
-            "log_id": str(row["id"]),
-            "project_name": row["project_name"],
-            "log_content": row["log_content"],
-            "created_at": str(row["created_at"]),
+            "log_id": res["log_id"],
+            "project_name": res["project_name"],
+            "log_content": res["log_content"],
+            "created_at": res["created_at"],
         })
     return results
 

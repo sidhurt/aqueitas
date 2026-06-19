@@ -56,3 +56,20 @@ CREATE TRIGGER update_projects_modtime
     BEFORE UPDATE ON projects
     FOR EACH ROW
     EXECUTE FUNCTION update_modified_column();
+
+-- 4. Workspace Files Table
+-- Stores chunks of ingested code files from local workspace
+CREATE TABLE IF NOT EXISTS workspace_files (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    project_id UUID REFERENCES projects(id) ON DELETE CASCADE,
+    project_path TEXT NOT NULL,
+    file_path TEXT NOT NULL,
+    raw_content TEXT NOT NULL,
+    content_embedding vector(1536),
+    timestamp TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Create HNSW index for high-speed semantic search on files
+CREATE INDEX IF NOT EXISTS workspace_files_embedding_idx 
+ON workspace_files USING hnsw (content_embedding vector_cosine_ops);
+
