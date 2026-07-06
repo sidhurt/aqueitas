@@ -22,6 +22,12 @@
 > You'll need:
 > - An **OpenAI key** → [platform.openai.com/api-keys](https://platform.openai.com/api-keys) *(embeddings — ~$0.02/1M tokens)*
 > - A **DeepSeek key** → [platform.deepseek.com/api_keys](https://platform.deepseek.com/api_keys) *(reasoning — ~$0.14/1M tokens)*
+>
+> **No keys? You can still try it.** Set `EMBEDDING_PROVIDER=fake` and
+> `REASONING_PROVIDER=passthrough` in your `.env` — the full commit→vault→ask
+> loop runs 100% locally (commit messages become the intent summaries, and
+> deterministic offline vectors power the search). Swap in real keys later;
+> nothing else changes.
 
 **Windows** — Double-click **`CONFIGURE_AQUEITAS.bat`** (interactive wizard, no manual file editing)
 
@@ -114,6 +120,50 @@ python aq.py doctor
 | `python aq.py ask "..."` | Query your technical memory |
 | `python aq.py logs` | View the 10 most recent ingested commits |
 | `python aq.py replay` | Re-ingest commits queued while the Brain was offline |
+| `python aq.py mcp` | Run the MCP server (stdio) for AI-assistant integration |
+
+---
+
+## 🔌 MCP Integration (Claude Code, Claude Desktop, Cursor)
+
+Aqueitas is infrastructure, not another chat window: any MCP-capable assistant
+can query your engineering memory directly.
+
+**Claude Code:**
+```bash
+claude mcp add aqueitas -- python /absolute/path/to/aqueitas/aq.py mcp
+```
+
+**Cursor / Claude Desktop** (`mcp.json` / `claude_desktop_config.json`):
+```json
+{
+  "mcpServers": {
+    "aqueitas": {
+      "command": "python",
+      "args": ["/absolute/path/to/aqueitas/aq.py", "mcp"]
+    }
+  }
+}
+```
+
+Exposed tools:
+
+| Tool | What it does |
+|---|---|
+| `query_sovereign_vault` | Grounded answers from your engineering history, with structured sources (log id, project, timestamp, excerpt). If the Brain is offline it returns an honest error — never a made-up answer. |
+| `ingest_workspace` | Chunk + embed a local directory into the vault for code-aware retrieval. |
+
+---
+
+## 🔒 Privacy & Data Flow
+
+Trust requires knowing exactly what leaves your machine:
+
+- **Vault data never leaves your machine.** Commits, embeddings, and answers live in your local Postgres container.
+- With default providers, **two things are sent out per commit**: the diff + commit message go to **DeepSeek** (intent extraction), and the resulting summary goes to **OpenAI** (embedding). Diffs are capped at 50KB before leaving the machine.
+- The sensor is **global** (`core.hooksPath`) — it observes every repo you commit to. Your repos' own `post-commit` hooks still run: the sensor chains to them first. To pause observation: `git config --global --unset core.hooksPath`.
+- Fully offline mode: `EMBEDDING_PROVIDER=fake` + `REASONING_PROVIDER=passthrough` — zero external calls.
+- If the Brain is down, commits queue locally in `sensor/queue.jsonl` and replay later — nothing is lost, nothing is sent anywhere in the meantime.
 
 ---
 
@@ -148,10 +198,18 @@ graph TD
 
 | Layer | Technology | Role |
 |---|---|---|
-| Sovereign Vault | PostgreSQL + pgvector | Stores commit embeddings (1536-dimensional HNSW index) |
+| Sovereign Vault | PostgreSQL + pgvector | Stores commit embeddings (1536-dimensional HNSW index), deduplicated by commit hash |
 | Ingestion Engine | FastAPI + asyncpg | Extracts the *why* behind every code change |
-| Sensor | Global Git hook | Intercepts commits across every project on your machine |
-| Retrieval Engine | aq CLI + vector search | Zero-hallucination answers grounded in your actual history |
+| Sensor | Global Git hook | Observes commits across every project (and chains to each repo's own hooks) |
+| Retrieval Engine | aq CLI + vector search | Answers grounded strictly in your actual history — sources cited, honest when no record exists |
+
+Providers are swappable via `.env` (`EMBEDDING_PROVIDER`, `REASONING_PROVIDER`,
+`EMBEDDING_MODEL`, `REASONING_MODEL`, `REASONING_BASE_URL`) — the accumulated
+engineering memory is the asset, not any particular model.
+
+> **Optional:** an experimental remote-worker integration (AWS Fargate + Tailscale)
+> exists behind `ATLAS_ENABLED=true`. It is fully off by default and the core
+> system has no AWS dependency.
 
 ---
 
