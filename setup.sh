@@ -57,6 +57,16 @@ if ! docker info &>/dev/null; then
 fi
 ok "Docker: $(docker --version)"
 
+# Compose ships either as the standalone 'docker-compose' binary or the
+# 'docker compose' plugin — accept both.
+if command -v docker-compose &>/dev/null; then
+    ok "Compose: docker-compose"
+elif docker compose version &>/dev/null; then
+    ok "Compose: docker compose (plugin)"
+else
+    fail "Docker Compose not found. Install Docker Desktop or the compose plugin."
+fi
+
 # ── STEP 2: Verify configuration was done first ───────────────────────────────
 echo ""
 step "[2/4] Verifying configuration files..."
@@ -80,11 +90,23 @@ ok "brain/.env found."
 echo ""
 step "[3/4] Setting up Python environment..."
 
-if [[ ! -d "$VENV_DIR" ]]; then
+# A venv directory can exist but be unusable (e.g. a Windows venv cloned from
+# another machine has Scripts/ but no bin/). Trust it only if its interpreter runs.
+VENV_PY="$VENV_DIR/bin/python"
+venv_healthy=false
+if [[ -x "$VENV_PY" ]] && "$VENV_PY" -c "import sys" &>/dev/null; then
+    venv_healthy=true
+fi
+
+if [[ "$venv_healthy" == true ]]; then
+    ok "Virtual environment already exists and is healthy."
+else
+    if [[ -d "$VENV_DIR" ]]; then
+        warn "Existing brain/venv is unusable — rebuilding it."
+        rm -rf "$VENV_DIR"
+    fi
     python3 -m venv "$VENV_DIR"
     ok "Virtual environment created at brain/venv"
-else
-    ok "Virtual environment already exists — skipping creation."
 fi
 
 step "       Installing dependencies from brain/requirements.txt..."

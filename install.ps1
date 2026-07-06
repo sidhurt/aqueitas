@@ -61,6 +61,23 @@ try {
     Write-Fail "Docker is not installed or not running.`n          Download: https://docker.com/products/docker-desktop"
 }
 
+# Compose ships either as the standalone 'docker-compose' binary or the
+# 'docker compose' plugin — accept both.
+$ComposeOK = $false
+if (Get-Command docker-compose -ErrorAction SilentlyContinue) {
+    $ComposeOK = $true
+    Write-OK "Compose: docker-compose"
+} else {
+    docker compose version *> $null
+    if ($LASTEXITCODE -eq 0) {
+        $ComposeOK = $true
+        Write-OK "Compose: docker compose (plugin)"
+    }
+}
+if (-Not $ComposeOK) {
+    Write-Fail "Docker Compose not found. Install Docker Desktop (it includes Compose)."
+}
+
 # ── STEP 2: Verify configuration was done first ───────────────────────────────
 Write-Host ""
 Write-Step "[2/4] Verifying configuration files..."
@@ -90,14 +107,29 @@ Write-OK "brain/.env found."
 Write-Host ""
 Write-Step "[3/4] Setting up Python environment..."
 
-if (-Not (Test-Path $VenvDir)) {
+# A venv directory can exist but be unusable (e.g. cloned from another
+# machine, or half-created). Trust it only if its interpreter actually runs.
+$VenvPython = Join-Path $VenvDir "Scripts\python.exe"
+$VenvHealthy = $false
+if (Test-Path $VenvPython) {
+    try {
+        & $VenvPython -c "import sys" 2>$null
+        if ($LASTEXITCODE -eq 0) { $VenvHealthy = $true }
+    } catch {}
+}
+
+if ($VenvHealthy) {
+    Write-OK "Virtual environment already exists and is healthy."
+} else {
+    if (Test-Path $VenvDir) {
+        Write-Warn "Existing brain/venv is unusable — rebuilding it."
+        Remove-Item -Recurse -Force $VenvDir
+    }
     python -m venv $VenvDir
     if ($LASTEXITCODE -ne 0) {
         Write-Fail "Failed to create virtual environment."
     }
     Write-OK "Virtual environment created at brain/venv"
-} else {
-    Write-OK "Virtual environment already exists — skipping creation."
 }
 
 Write-Step "       Installing dependencies from brain/requirements.txt..."

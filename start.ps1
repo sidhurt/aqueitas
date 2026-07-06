@@ -16,7 +16,11 @@ Write-Host ""
 # --- STEP 1: Vault (Docker) ---
 Write-Host "  [1/2] Starting Sovereign Vault (Docker)..." -ForegroundColor Yellow
 Set-Location $Root
-docker-compose up -d
+if (Get-Command docker-compose -ErrorAction SilentlyContinue) {
+    docker-compose up -d
+} else {
+    docker compose up -d
+}
 
 if ($LASTEXITCODE -ne 0) {
     Write-Host "  [ERROR] Docker failed. Is Docker Desktop running?" -ForegroundColor Red
