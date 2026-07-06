@@ -1,4 +1,5 @@
 import os
+import sys
 import asyncpg
 from dotenv import load_dotenv
 
@@ -6,6 +7,11 @@ from dotenv import load_dotenv
 load_dotenv()
 
 DATABASE_URL = os.getenv("DATABASE_URL")
+
+def _log(msg: str) -> None:
+    # stderr, not stdout: this module is also imported by the MCP stdio server,
+    # where stdout carries the JSON-RPC protocol stream.
+    print(msg, file=sys.stderr)
 
 class Database:
     def __init__(self):
@@ -16,20 +22,20 @@ class Database:
         if not self.pool:
             try:
                 self.pool = await asyncpg.create_pool(
-                    DATABASE_URL, 
-                    min_size=1, 
+                    DATABASE_URL,
+                    min_size=1,
                     max_size=10
                 )
-                print("Successfully connected to the Sovereign Vault via asyncpg.")
+                _log("Successfully connected to the Sovereign Vault via asyncpg.")
             except Exception as e:
-                print(f"Failed to connect to the database: {e}")
+                _log(f"Failed to connect to the database: {e}")
                 raise
 
     async def disconnect(self):
         """Close the connection pool."""
         if self.pool:
             await self.pool.close()
-            print("Database connection pool closed.")
+            _log("Database connection pool closed.")
 
 # Global database instance to be imported by FastAPI main application
 db = Database()

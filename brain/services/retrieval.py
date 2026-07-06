@@ -1,5 +1,5 @@
 import re
-from .embedding import deepseek_client, generate_embedding
+from .embedding import chat_completion, reasoning_enabled
 
 # Keywords that signal the user wants commits ordered by time, not similarity
 _TEMPORAL_PATTERN = re.compile(
@@ -124,30 +124,43 @@ async def search_vault(
         })
     return results
 
+# Cap what each log contributes to the synthesis prompt: log_content carries
+# full diffs (up to the sensor's 50KB cap), which would swamp the context window.
+_SYNTHESIS_CHARS_PER_LOG = 4000
+
 async def synthesize_answer(query: str, retrieved_logs: list[dict]) -> str:
     """
-    Passes the retrieved logs to DeepSeek for Zero-Hallucination synthesis.
+    Passes the retrieved logs to the reasoning provider for grounded synthesis.
+    With reasoning offline, returns the raw evidence instead of prose — never
+    a fabricated answer.
     """
+    if not retrieved_logs:
+        return "The Vault contains no record of this resolution."
+
+    if not reasoning_enabled():
+        parts = []
+        for idx, log in enumerate(retrieved_logs, 1):
+            parts.append(
+                f"[{idx}] {log['project_name']} | {log['created_at']}\n"
+                f"{log['log_content'][:_SYNTHESIS_CHARS_PER_LOG].strip()}"
+            )
+        return (
+            "Reasoning provider is disabled (REASONING_PROVIDER=passthrough), "
+            "so here are the raw matching records instead of a synthesized answer:\n\n"
+            + "\n\n".join(parts)
+        )
+
     system_prompt = (
         "You are a clinical technical architect. You are answering a query strictly based on the provided engineering logs.\n"
         "If the provided logs do not contain the answer, you are strictly forbidden from generating one. "
         "Output EXACTLY: 'The Vault contains no record of this resolution.'\n"
         "Do not use external knowledge or general training data."
     )
-    
+
     logs_context = ""
     for idx, log in enumerate(retrieved_logs, 1):
-        logs_context += f"--- LOG {idx} (Project: {log['project_name']}) ---\n{log['log_content']}\n\n"
-        
+        logs_context += f"--- LOG {idx} (Project: {log['project_name']}) ---\n{log['log_content'][:_SYNTHESIS_CHARS_PER_LOG]}\n\n"
+
     user_prompt = f"Logs:\n{logs_context}\n\nQuery: {query}"
-    
-    response = await deepseek_client.chat.completions.create(
-        model="deepseek-chat",
-        messages=[
-            {"role": "system", "content": system_prompt},
-            {"role": "user", "content": user_prompt}
-        ],
-        temperature=0.0,
-        max_tokens=500
-    )
-    return response.choices[0].message.content.strip()
+
+    return await chat_completion(system_prompt, user_prompt, temperature=0.0, max_tokens=500)
