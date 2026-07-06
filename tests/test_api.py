@@ -36,7 +36,7 @@ except Exception as e:
 # 2. Fire the API
 url = "http://127.0.0.1:8000/log"
 payload = {
-    "project_id": str(project_id),
+    "project_name": "test-project",
     "git_diff": "diff --git a/src/utils.py b/src/utils.py\n--- a/src/utils.py\n+++ b/src/utils.py\n@@ -1,3 +1,4 @@\n def calculate_total(prices):\n-    return sum(prices)\n+    # Added discount logic to fix bug in checkout\n+    return sum(prices) * 0.9",
     "commit_msg": "Fix: Apply 10% discount to all orders in checkout logic"
 }

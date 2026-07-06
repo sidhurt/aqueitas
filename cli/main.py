@@ -2,6 +2,7 @@ import os
 import sys
 import subprocess
 import time
+import json
 from pathlib import Path
 import typer
 import httpx
@@ -185,6 +186,82 @@ def ask(
     
     console.print("\n")
 
+
+@app.command()
+def status():
+    """Quick health check"""
+    doctor()
+
+@app.command()
+def doctor():
+    """Deep diagnostics — keys, files, connectivity"""
+    console.print("\n[bold cyan]=== Aqueitas Diagnostics ===[/bold cyan]\n")
+    
+    env_root = ROOT_DIR / ".env"
+    env_brain = BRAIN_DIR / ".env"
+    console.print(f"Root .env exists:  {'[green]Yes[/green]' if env_root.exists() else '[red]No[/red]'}")
+    console.print(f"Brain .env exists: {'[green]Yes[/green]' if env_brain.exists() else '[red]No[/red]'}")
+    
+    try:
+        with httpx.Client(timeout=2.0) as client:
+            r = client.get("http://127.0.0.1:8000/docs")
+            status_text = "[green]Online[/green]" if r.status_code == 200 else f"[yellow]Code {r.status_code}[/yellow]"
+    except httpx.RequestError:
+        status_text = "[red]Offline[/red] (Is the Brain running?)"
+        
+    console.print(f"Brain API:         {status_text}\n")
+
+@app.command()
+def replay():
+    """Re-ingest commits queued while the Brain was offline"""
+    queue_file = ROOT_DIR / "sensor" / "queue.jsonl"
+    if not queue_file.exists():
+        console.print("[green]No offline commit queue found.[/green]")
+        return
+
+    entries = []
+    malformed = []
+    for line_no, line in enumerate(queue_file.read_text(encoding="utf-8").splitlines(), 1):
+        if not line.strip():
+            continue
+        try:
+            payload = json.loads(line)
+        except json.JSONDecodeError as exc:
+            console.print(f"[yellow]Skipping malformed queue entry on line {line_no}: {exc}[/yellow]")
+            malformed.append(line)
+            continue
+        replay_payload = dict(payload)
+        replay_payload.pop("queued_at", None)
+        entries.append((replay_payload, line))
+
+    if not entries and not malformed:
+        console.print("[green]Offline queue is empty.[/green]")
+        queue_file.unlink()
+        return
+
+    remaining = []
+    replayed_count = 0
+    with httpx.Client(timeout=30.0) as client:
+        for payload, original_line in entries:
+            try:
+                response = client.post("http://127.0.0.1:8000/log", json=payload)
+                response.raise_for_status()
+                replayed_count += 1
+            except (httpx.RequestError, httpx.HTTPStatusError) as exc:
+                console.print(f"[red]Replay failed for {payload.get('project_name', 'unknown project')}: {exc}[/red]")
+                remaining.append(original_line)
+
+    remaining.extend(malformed)
+    if remaining:
+        queue_file.write_text(
+            "\n".join(remaining) + "\n",
+            encoding="utf-8",
+        )
+        console.print(f"[yellow]Replayed {replayed_count} entries; {len(remaining)} remain queued.[/yellow]")
+        raise typer.Exit(1)
+
+    queue_file.unlink()
+    console.print(f"[green]Replayed {replayed_count} queued commits.[/green]")
 
 @app.command()
 def mcp():

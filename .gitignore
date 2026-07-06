@@ -31,3 +31,6 @@ demo-api/
 
 # Offline commit queue (runtime state — never commit)
 sensor/queue.jsonl
+
+# Build artifacts
+*.egg-info/
