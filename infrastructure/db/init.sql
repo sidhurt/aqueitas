@@ -24,8 +24,17 @@ CREATE TABLE IF NOT EXISTS engineering_logs (
 );
 
 -- Create HNSW index for high-speed semantic search on logs
-CREATE INDEX IF NOT EXISTS engineering_logs_embedding_idx 
+CREATE INDEX IF NOT EXISTS engineering_logs_embedding_idx
 ON engineering_logs USING hnsw (content_embedding vector_cosine_ops);
+
+-- Heal volumes initialized before commit_hash existed
+ALTER TABLE engineering_logs ADD COLUMN IF NOT EXISTS commit_hash VARCHAR(40);
+
+-- Deduplication: a commit is ingested at most once per project.
+-- Partial index keeps legacy rows (commit_hash IS NULL) untouched.
+CREATE UNIQUE INDEX IF NOT EXISTS engineering_logs_project_commit_uidx
+ON engineering_logs (project_id, commit_hash)
+WHERE commit_hash IS NOT NULL;
 
 -- 3. Technical Lessons Table
 -- Distilled, synthesized lessons learned across sprints
@@ -51,7 +60,9 @@ BEGIN
 END;
 $$ language 'plpgsql';
 
--- Trigger for projects table
+-- Trigger for projects table (drop-and-recreate keeps this script idempotent,
+-- so the Brain can re-apply the whole file at every startup)
+DROP TRIGGER IF EXISTS update_projects_modtime ON projects;
 CREATE TRIGGER update_projects_modtime
     BEFORE UPDATE ON projects
     FOR EACH ROW
