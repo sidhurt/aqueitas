@@ -1,3 +1,20 @@
 #!/bin/sh
+# Aqueitas global sensor hook.
+#
+# Because `git config --global core.hooksPath` points every repository at this
+# directory, the repository's own hooks (husky, pre-commit, etc.) would be
+# silently disabled. So: chain to the repo-local post-commit hook first.
+# NOTE: use --git-dir, NOT --git-path hooks — the latter resolves back to
+# core.hooksPath (this directory) and would recurse forever.
+LOCAL_HOOK="$(git rev-parse --git-dir 2>/dev/null)/hooks/post-commit"
+if [ -x "$LOCAL_HOOK" ]; then
+    "$LOCAL_HOOK" "$@"
+fi
+
 PYTHON=$(command -v python3 2>/dev/null || command -v python 2>/dev/null)
-"$PYTHON" "$(dirname "$0")/post-commit.py"
+if [ -n "$PYTHON" ]; then
+    "$PYTHON" "$(dirname "$0")/post-commit.py"
+fi
+
+# The sensor must never fail a commit.
+exit 0
