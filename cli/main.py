@@ -1,6 +1,7 @@
 import os
-import sys
+import shutil
 import subprocess
+import sys
 import time
 import json
 from pathlib import Path
@@ -26,11 +27,38 @@ app = typer.Typer(
 )
 console = Console()
 
+BRAIN_URL = "http://127.0.0.1:8000"
+
+
+def compose_command() -> list[str] | None:
+    """Prefer the standalone docker-compose binary, fall back to the
+    'docker compose' plugin (the only form shipped on many modern installs)."""
+    if shutil.which("docker-compose"):
+        return ["docker-compose"]
+    if shutil.which("docker"):
+        return ["docker", "compose"]
+    return None
+
+
+def wait_for_brain(timeout_seconds: float = 20.0) -> bool:
+    """Poll the Brain until it answers, instead of trusting a fixed sleep."""
+    deadline = time.monotonic() + timeout_seconds
+    while time.monotonic() < deadline:
+        try:
+            with httpx.Client(timeout=1.0) as client:
+                if client.get(f"{BRAIN_URL}/docs").status_code == 200:
+                    return True
+        except httpx.RequestError:
+            pass
+        time.sleep(0.5)
+    return False
+
+
 @app.command()
 def start():
     """Start Vault (Docker) and Brain (FastAPI)"""
     console.print(Panel.fit("[bold cyan]⚡ Launching the Sovereign Engine...[/bold cyan]"))
-    
+
     with Progress(
         SpinnerColumn(spinner_name="dots"),
         TextColumn("[progress.description]{task.description}"),
@@ -38,13 +66,19 @@ def start():
     ) as progress:
         # Task 1: Vault
         task_vault = progress.add_task("[blue]Starting Vault (Docker Compose)...", total=None)
-        
+
+        compose = compose_command()
+        if compose is None:
+            progress.stop()
+            console.print("[bold red]Docker not found on PATH. Please install Docker Desktop.[/bold red]")
+            raise typer.Exit(1)
+
         try:
             subprocess.run(
-                ["docker-compose", "up", "-d"], 
-                cwd=ROOT_DIR, 
-                check=True, 
-                capture_output=True, 
+                compose + ["up", "-d"],
+                cwd=ROOT_DIR,
+                check=True,
+                capture_output=True,
                 text=True
             )
             progress.update(task_vault, completed=True, description="[green]Vault is up.[/green]")
@@ -82,15 +116,27 @@ def start():
                     stderr=subprocess.DEVNULL
                 )
             
-            # Wait a moment for Brain to initialize
-            time.sleep(2)
-            progress.update(task_brain, completed=True, description="[green]Brain is alive.[/green]")
+            # Poll until the Brain actually answers — a fixed sleep can
+            # claim success while the API is still dead.
+            if wait_for_brain():
+                progress.update(task_brain, completed=True, description="[green]Brain is alive.[/green]")
+                brain_ok = True
+            else:
+                progress.update(task_brain, completed=True, description="[yellow]Brain not responding yet.[/yellow]")
+                brain_ok = False
         except Exception as e:
             progress.stop()
             console.print(f"[bold red]Failed to launch Intelligence Brain: {e}[/bold red]")
             raise typer.Exit(1)
-            
-    console.print("\n[bold green]✅ System online. The Aqueitas Engine is now omnipresent.[/bold green]")
+
+    if brain_ok:
+        console.print("\n[bold green]✅ System online. The Aqueitas Engine is now omnipresent.[/bold green]")
+    else:
+        console.print(
+            "\n[bold yellow]⚠ Vault is up, but the Brain did not answer within 20s.[/bold yellow]\n"
+            "[yellow]Check the Brain terminal window for errors, then run: python aq.py doctor[/yellow]"
+        )
+        raise typer.Exit(1)
 
 
 @app.command()
@@ -182,7 +228,9 @@ def ask(
         for idx, src in enumerate(sources, 1):
             project_name = src.get("project_name", "Unknown")
             log_id = src.get("log_id", "Unknown")
-            console.print(f"  [bold]{idx}.[/bold] [cyan]{project_name}[/cyan] [dim](Log ID: {log_id})[/dim]")
+            created_at = (src.get("created_at") or "")[:19].replace("T", " ")
+            when = f" · {created_at}" if created_at else ""
+            console.print(f"  [bold]{idx}.[/bold] [cyan]{project_name}[/cyan]{when} [dim](Log ID: {log_id})[/dim]")
     
     console.print("\n")
 
@@ -194,22 +242,79 @@ def status():
 
 @app.command()
 def doctor():
-    """Deep diagnostics — keys, files, connectivity"""
+    """Deep diagnostics — keys, files, connectivity, sensor, queue"""
     console.print("\n[bold cyan]=== Aqueitas Diagnostics ===[/bold cyan]\n")
-    
+
     env_root = ROOT_DIR / ".env"
     env_brain = BRAIN_DIR / ".env"
-    console.print(f"Root .env exists:  {'[green]Yes[/green]' if env_root.exists() else '[red]No[/red]'}")
-    console.print(f"Brain .env exists: {'[green]Yes[/green]' if env_brain.exists() else '[red]No[/red]'}")
-    
+    console.print(f"Root .env exists:   {'[green]Yes[/green]' if env_root.exists() else '[red]No[/red]'}")
+    console.print(f"Brain .env exists:  {'[green]Yes[/green]' if env_brain.exists() else '[red]No[/red]'}")
+
+    # Docker / Vault container
+    compose = compose_command()
+    if compose is None:
+        console.print("Docker:             [red]Not found on PATH[/red]")
+    else:
+        try:
+            result = subprocess.run(
+                ["docker", "ps", "--filter", "name=aqueitas-vault", "--format", "{{.Names}}"],
+                capture_output=True, text=True, timeout=10
+            )
+            if result.returncode != 0:
+                console.print("Docker:             [red]Installed but not running[/red]")
+            elif "aqueitas-vault" in result.stdout:
+                console.print("Vault container:    [green]Running[/green]")
+            else:
+                console.print("Vault container:    [yellow]Not running[/yellow] (python aq.py start)")
+        except (subprocess.TimeoutExpired, FileNotFoundError):
+            console.print("Docker:             [red]Not responding[/red]")
+
+    # Brain API + Vault reachability through it
     try:
         with httpx.Client(timeout=2.0) as client:
-            r = client.get("http://127.0.0.1:8000/docs")
-            status_text = "[green]Online[/green]" if r.status_code == 200 else f"[yellow]Code {r.status_code}[/yellow]"
+            r = client.get(f"{BRAIN_URL}/docs")
+            brain_text = "[green]Online[/green]" if r.status_code == 200 else f"[yellow]Code {r.status_code}[/yellow]"
     except httpx.RequestError:
-        status_text = "[red]Offline[/red] (Is the Brain running?)"
-        
-    console.print(f"Brain API:         {status_text}\n")
+        brain_text = "[red]Offline[/red] (Is the Brain running?)"
+    console.print(f"Brain API:          {brain_text}")
+
+    try:
+        with httpx.Client(timeout=5.0) as client:
+            r = client.get(f"{BRAIN_URL}/logs?limit=1")
+            db_text = "[green]Reachable[/green]" if r.status_code == 200 else f"[red]Error {r.status_code}[/red]"
+    except httpx.RequestError:
+        db_text = "[dim]Unknown (Brain offline)[/dim]"
+    console.print(f"Vault (via Brain):  {db_text}")
+
+    # Git sensor
+    sensor_dir = ROOT_DIR / "sensor"
+    try:
+        result = subprocess.run(
+            ["git", "config", "--global", "core.hooksPath"],
+            capture_output=True, text=True, timeout=10
+        )
+        hooks_path = result.stdout.strip()
+        if hooks_path and Path(hooks_path).resolve() == sensor_dir.resolve():
+            console.print("Commit sensor:      [green]Active[/green] (global hooksPath)")
+        elif hooks_path:
+            console.print(f"Commit sensor:      [yellow]hooksPath points elsewhere:[/yellow] {hooks_path}")
+        else:
+            console.print("Commit sensor:      [red]Not installed[/red] (python aq.py install)")
+    except (subprocess.TimeoutExpired, FileNotFoundError):
+        console.print("Commit sensor:      [red]git not found[/red]")
+
+    # Offline queue backlog
+    queue_file = ROOT_DIR / "sensor" / "queue.jsonl"
+    if queue_file.exists():
+        backlog = sum(1 for line in queue_file.read_text(encoding="utf-8").splitlines() if line.strip())
+        if backlog:
+            console.print(f"Offline queue:      [yellow]{backlog} commit(s) waiting[/yellow] (python aq.py replay)")
+        else:
+            console.print("Offline queue:      [green]Empty[/green]")
+    else:
+        console.print("Offline queue:      [green]Empty[/green]")
+
+    console.print("")
 
 @app.command()
 def replay():
@@ -241,14 +346,27 @@ def replay():
 
     remaining = []
     replayed_count = 0
-    with httpx.Client(timeout=30.0) as client:
+    dropped_count = 0
+    with httpx.Client(timeout=60.0) as client:
         for payload, original_line in entries:
+            project = payload.get('project_name', 'unknown project')
             try:
-                response = client.post("http://127.0.0.1:8000/log", json=payload)
+                response = client.post(f"{BRAIN_URL}/log", json=payload)
                 response.raise_for_status()
                 replayed_count += 1
-            except (httpx.RequestError, httpx.HTTPStatusError) as exc:
-                console.print(f"[red]Replay failed for {payload.get('project_name', 'unknown project')}: {exc}[/red]")
+            except httpx.HTTPStatusError as exc:
+                code = exc.response.status_code
+                if 400 <= code < 500:
+                    # The Brain rejected the entry itself (validation etc.).
+                    # Retrying can never succeed — drop it instead of letting a
+                    # poison entry clog the queue forever.
+                    console.print(f"[yellow]Dropped rejected entry for {project} (HTTP {code}).[/yellow]")
+                    dropped_count += 1
+                else:
+                    console.print(f"[red]Replay failed for {project} (HTTP {code}); will retry later.[/red]")
+                    remaining.append(original_line)
+            except httpx.RequestError as exc:
+                console.print(f"[red]Replay failed for {project}: {exc}[/red]")
                 remaining.append(original_line)
 
     remaining.extend(malformed)
@@ -257,11 +375,14 @@ def replay():
             "\n".join(remaining) + "\n",
             encoding="utf-8",
         )
-        console.print(f"[yellow]Replayed {replayed_count} entries; {len(remaining)} remain queued.[/yellow]")
+        console.print(f"[yellow]Replayed {replayed_count}, dropped {dropped_count}; {len(remaining)} remain queued.[/yellow]")
         raise typer.Exit(1)
 
     queue_file.unlink()
-    console.print(f"[green]Replayed {replayed_count} queued commits.[/green]")
+    summary = f"Replayed {replayed_count} queued commits."
+    if dropped_count:
+        summary += f" Dropped {dropped_count} unprocessable entries."
+    console.print(f"[green]{summary}[/green]")
 
 @app.command()
 def mcp():
@@ -270,10 +391,7 @@ def mcp():
         from cli.mcp_server import start_mcp
         start_mcp()
     except ImportError as e:
-        with open("mcp_error.txt", "w") as f:
-            f.write(f"ImportError: {e}\n")
-        console.stderr = True
-        console.print(f"[bold red]Failed to load MCP server: {e}[/bold red]")
+        print(f"Failed to load MCP server: {e}", file=sys.stderr)
         raise typer.Exit(1)
 
 
