@@ -10,7 +10,7 @@ Aqueitas runs entirely on your machine. On every commit, it reads the diff and m
 
 ---
 
-## Get running
+## ⚡ Get running
 
 ### Prerequisites
 - [Python 3.10+](https://python.org/downloads) — check with `python --version`
@@ -24,24 +24,24 @@ By default Aqueitas uses two paid APIs — one to read intent from diffs, one to
 - **OpenAI key** → [platform.openai.com/api-keys](https://platform.openai.com/api-keys) *(embeddings, ~$0.02/1M tokens)*
 - **DeepSeek key** → [platform.deepseek.com/api_keys](https://platform.deepseek.com/api_keys) *(reasoning, ~$0.14/1M tokens)*
 
-**No keys? Try it fully offline.** Set `EMBEDDING_PROVIDER=fake` and `REASONING_PROVIDER=passthrough` in your `.env`. The whole commit → store → ask loop runs with zero external calls: your commit messages become the intent summaries, and deterministic local vectors power search. Add real keys later — nothing else changes.
+> **No keys? Try it fully offline.** Set `EMBEDDING_PROVIDER=fake` and `REASONING_PROVIDER=passthrough` in your `.env`. The whole commit → store → ask loop runs with zero external calls: your commit messages become the intent summaries, and deterministic local vectors power search. Add real keys later — nothing else changes.
 
-**Windows:** double-click **`CONFIGURE_AQUEITAS.bat`** (interactive, no file editing).
-**Mac / Linux:** `python3 aq.py configure`
+**Windows** — double-click **`CONFIGURE_AQUEITAS.bat`** (interactive, no file editing)
+**Mac / Linux** — `python3 aq.py configure`
 
 Or by hand: `cp .env.example .env` and fill in your keys (the same values go in `brain/.env`).
 
 ### 2. Install (once)
 
-**Windows:** double-click **`INSTALL_AQUEITAS.bat`**, or `python aq.py install`
-**Mac / Linux:** `python3 aq.py install`
+**Windows** — double-click **`INSTALL_AQUEITAS.bat`**, or `python aq.py install`
+**Mac / Linux** — `python3 aq.py install`
 
 Creates the Python environment, installs dependencies, and activates the git commit sensor. ~60 seconds first run.
 
 ### 3. Start
 
-**Windows:** double-click **`START_AQUEITAS.bat`**, or `python aq.py start`
-**Mac / Linux:** `python3 aq.py start`
+**Windows** — double-click **`START_AQUEITAS.bat`**, or `python aq.py start`
+**Mac / Linux** — `python3 aq.py start`
 
 Then check everything is healthy:
 
@@ -53,7 +53,7 @@ From now on, every commit you make — in any repo on your machine — is captur
 
 ---
 
-## Asking your history
+## 🔍 Asking your history
 
 ```bash
 python aq.py ask "how did I implement the auth flow in the DMS project?"
@@ -65,7 +65,7 @@ Answers are built only from your captured commits. When nothing in your history 
 
 ---
 
-## CLI reference
+## 🖥️ CLI reference
 
 > On Mac / Linux, use `python3`.
 
@@ -83,7 +83,7 @@ Answers are built only from your captured commits. When nothing in your history 
 
 ---
 
-## Use it from your AI assistant (MCP)
+## 🔌 Use it from your AI assistant (MCP)
 
 Aqueitas is meant to be infrastructure other tools query, not another chat window. Any MCP-capable assistant can pull answers from your engineering history.
 
@@ -111,7 +111,7 @@ claude mcp add aqueitas -- python /absolute/path/to/aqueitas/aq.py mcp
 
 ---
 
-## Privacy & data flow
+## 🔒 Privacy & data flow
 
 Knowing exactly what leaves your machine is the point, so it's stated plainly:
 
@@ -123,22 +123,37 @@ Knowing exactly what leaves your machine is the point, so it's stated plainly:
 
 ---
 
-## How it works
+## 🏗️ How it works
 
 ```mermaid
-graph LR
-    A[git commit] -->|post-commit hook| B[local service]
-    B -->|read intent from diff| C[DeepSeek]
-    B -->|embed the summary| D[OpenAI]
-    B -->|store| E[(Postgres + pgvector)]
-    F["aq ask / MCP"] -->|vector search| E
-    E -->|grounded answer + sources| F
+graph TD
+    subgraph "The Sensor"
+        A[git commit] -->|post-commit hook| B(post-commit.py)
+    end
+
+    subgraph "The Ingestion Service (FastAPI)"
+        B -->|POST /log| C{Ingestion Service}
+        C -->|Read intent from diff| D["DeepSeek — deepseek-chat"]
+        C -->|Embed the summary → 1536d| E["OpenAI — text-embedding-3-small"]
+        D --> C
+        E --> C
+    end
+
+    subgraph "The Store"
+        C -->|Insert, deduped by commit hash| F[("PostgreSQL + pgvector")]
+    end
+
+    subgraph "Retrieval"
+        G["aq ask / MCP"] -->|Query| F
+        F -->|Vector search| G
+        G -->|Grounded answer + cited sources| H((You / your AI assistant))
+    end
 ```
 
 | Part | Built on | Role |
 |---|---|---|
 | Store | PostgreSQL + pgvector | Holds commit embeddings; deduplicated by commit hash so replays never double-count |
-| Service | FastAPI + asyncpg | Reads the *why* from each diff and writes it to the store |
+| Ingestion Service | FastAPI + asyncpg | Reads the *why* from each diff and writes it to the store |
 | Sensor | Global git hook | Observes commits across every project, and chains to each repo's own hooks |
 | Retrieval | `aq` CLI + MCP | Answers grounded in your history — sources cited, explicit when there's no record |
 
@@ -148,7 +163,7 @@ Every model is swappable via `.env` (`EMBEDDING_PROVIDER`, `REASONING_PROVIDER`,
 
 ---
 
-## Cost
+## 💡 Cost
 
 | Model | Provider | Use | Cost |
 |---|---|---|---|
@@ -159,17 +174,17 @@ A typical commit costs well under **$0.001** to capture; a commit is only ever c
 
 ---
 
-## Background
+## 📖 Background
 
 Aqueitas began as a small documentation script and grew into a local-first engineering memory system: no SaaS, no lock-in, your data on your machine.
 
 - [The Aqueitas Manifesto](docs/AQUEITAS_MANIFESTO.md)
 - [Architecture notes](docs/Aqueitas_2.0_Dissertation.txt)
 
-## Contributing
+## 🤝 Contributing
 
 See [CONTRIBUTING.md](CONTRIBUTING.md). This project uses [Conventional Commits](https://www.conventionalcommits.org/).
 
-## License
+## ⚖️ License
 
 MIT — see [LICENSE](LICENSE).
